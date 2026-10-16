@@ -45,4 +45,6 @@
 
 ## 交付校验
 
-项目脚本建立后，执行 `npm run check` 和 `npm run build`。影响桌面集成的改动应执行桌面冒烟检查，影响业务行为的改动应执行相应测试。检查通过后无需重复无关校验。
+项目脚本建立后，执行 `npm run check`、`npm test` 和 `npm run build`。类型检查与构建会读取、重建 `.next/types/`，需要顺序执行。影响桌面集成的改动应执行 `npm run test:desktop`，影响用户交互的改动应执行 `npm run test:browser`。检查通过后无需重复无关校验。
+
+本机系统默认 Node 16 不符合工程要求；可在 PowerShell 中运行 `. .\scripts\Use-LocalRuntime.ps1` 启用已准备的本地运行时。不要修改用户的全局运行时或代理设置。

@@ -26,3 +26,5 @@ tools/
 Activate-PrimeAgent.ps1
 PRIME-AGENT-SETUP.md
 prime-agent.cmd
+Start-PrimeAgent-OpenRouter.cmd
+.nausicaa/
