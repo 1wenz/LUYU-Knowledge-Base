@@ -28,7 +28,17 @@ const terminals = new Set(["completed", "failed", "cancelled"]);
 export class OperationRegistry {
   private readonly records = new Map<string, RecordState>();
   constructor(private readonly sink: (ownerId: string, event: OperationEvent) => void) {}
+  private pruneFinished(ownerId: string): void {
+    const finished = [...this.records.values()].filter(
+      (record) => record.ownerId === ownerId && record.done,
+    );
+    // Keep recent UUIDs for replay rejection without imposing a window lifetime limit.
+    for (const record of finished.slice(0, Math.max(0, finished.length - 256))) {
+      this.records.delete(record.id);
+    }
+  }
   private register(ownerId: string, id: string, kind: Kind): RecordState {
+    this.pruneFinished(ownerId);
     if (
       this.records.has(id) ||
       [...this.records.values()].filter((record) => record.ownerId === ownerId).length >= 4096

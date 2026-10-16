@@ -35,6 +35,6 @@ psql --dbname $env:TEST_DATABASE_URL -X --file tests/acceptance/postgres.sql
 
 - 默认 unit 发现需加入 `tests/portability/`；备份和 Markdown 导出复用公共 DTO，不新增 IPC。目前先用 `node --test .cache/test-dist/tests/portability/backup.test.js .cache/test-dist/tests/portability/markdown.test.js` 显式运行。
 - A/C 的依赖请求分别在 `docs/data-retrieval.md`、`docs/ui-components.md`。尚需公共锁定 `pg`/类型、LangChain/tokenizer 及 UI 所需库；由 B 统一发布依赖提交，其他流更新到该提交后消费。
-- B2 的 `fd606c8` 已发现，正在审查；待 A 导出 `createKnowledgeService` 后注入组合根。使用未注入服务的 CONFIG_REQUIRED 不能作为真实知识库完成结论。
-- B2 审查发现：`OperationRegistry` 永久保留已结束的 search/assistant/reindex 记录，单窗口累计 4096 次后所有新操作会返回 CONFLICT。集成阶段增加持续操作的回归测试，清理已结束记录并保留活动请求限额；修复后再接受此阶段。
+- B2 的 `fd606c8` 已合入独立集成分支，check → 42 项默认测试 → build → 4 项真实 Electron 检查通过；这些 Electron 用例覆盖沙盒、固定 IPC、攻击参数、safeStorage 跨重启和未注册窗口。待 A 导出 `createKnowledgeService` 后注入组合根。使用未注入服务的 CONFIG_REQUIRED 不能作为真实知识库完成结论。
+- B2 审查发现：`OperationRegistry` 永久保留已结束的 search/assistant/reindex 记录，单窗口累计 4096 次后所有新操作会返回 CONFLICT。已先用两个 4100 次连续操作测试复现，再保留有上限的最近完成 UUID 历史，保留重复检测、owner 隔离和 32 个活动调用限额；3 项新增回归测试通过。合并提交 `3c7eb61` 同时包含 B2 与格式模块文档，保留现有历史，以后续修复提交完成此集成阶段验证。
 - 最后在同一集成状态执行 check → test → build，再运行数据库、browser、desktop 和 Windows 包检查；启动打包后的应用，验证原生标题栏拖动和主要交互。具体结果届时追加。
