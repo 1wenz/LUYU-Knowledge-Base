@@ -181,6 +181,11 @@ async function sha256Hex(value: string) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+/** Validate and copy canonical DTOs for a disk export, excluding internal fields. */
+export function prepareBackupSnapshot(input: unknown): BackupSnapshot {
+  return normalizeSnapshot(input, false);
+}
+
 export async function createBackup(
   snapshot: BackupSnapshot,
   options: { appVersion: string; exportedAt?: string },
@@ -189,7 +194,7 @@ export async function createBackup(
   assertString(options.appVersion, 64);
   const exportedAt = options.exportedAt ?? new Date().toISOString();
   assertExportTimestamp(exportedAt);
-  const payload = normalizeSnapshot(snapshot, false);
+  const payload = prepareBackupSnapshot(snapshot);
   const core = coreValue({
     format: "zhiyu-knowledge-backup",
     version: 1,
