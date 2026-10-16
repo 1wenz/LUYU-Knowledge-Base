@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const kind = process.argv[2] ?? "unit";
 const directories = {
   unit: ["domain", "search", "contracts", "platform", "portability", "regressions"],
-  db: ["integration"],
+  db: ["integration", "acceptance"],
   live: ["evals"],
 };
 if (!(kind in directories)) throw new Error("未知测试组。");
