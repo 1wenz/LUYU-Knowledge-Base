@@ -4,7 +4,7 @@
 
 设计交付入口：[架构](docs/architecture-v1.md)、[设计规范](Designlang.md)、[公共契约](docs/contracts-v1.md)、[开发原则](docs/development-principles.md)、[三位 Agent 的分工](docs/agents/README.md)。
 
-当前 main 已接通 Fluid 工作区、来源检索、助手/设置界面、桌面平台及 PostgreSQL 服务，真实桌面保存、检索、来源与重启持久化链路已通过。Windows 最终包仍在准备；最新证据见 [集成记录](docs/integration-status.md)。浏览器演示和 provider mock 测试不能代表真实云端链路已经通过。
+当前 main 已接通 Fluid 工作区、来源检索、助手/设置界面、桌面平台及 PostgreSQL 服务。Windows x64 实验目录包及 NSIS 安装包已生成，目录包已通过真实数据库、重启、加密、窗口拖动等 6 项桌面测试，并已打开供查看。安装包路径、校验值和配置方式见 [Windows 交付说明](docs/windows-delivery.md)，最新集成证据见 [集成记录](docs/integration-status.md)。真实云端 eval、开发者公开资料和代码签名仍待补齐。
 
 ## 开始开发
 
@@ -34,7 +34,7 @@ npm run dev
 | `npm run dev`              | 同时启动 Next.js 和 Electron                          |
 | `npm run dev:web`          | 浏览器开发，地址 `http://127.0.0.1:3000`              |
 | `npm run check`            | Web、Electron、E2E 类型检查与 ESLint                  |
-| `npm test`                 | 自动发现领域、检索、契约、平台、备份导出与回归测试     |
+| `npm test`                 | 自动发现领域、检索、契约、平台、备份导出与回归测试    |
 | `npm run test:db`          | 独立 TEST_DATABASE_URL 的数据库集成测试               |
 | `npm run eval:live`        | 显式开关、两家 key、独立测试库与正整数预算的付费 eval |
 | `npm run build`            | Next.js 静态导出 + Electron 编译                      |
