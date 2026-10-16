@@ -14,6 +14,8 @@ B4 `8467d64` 和 E2E 的 DOM.Iterable 修复整合后，main 顺序 check、113 
 
 额外的离线依赖 bundle 探测已复现 `pg-native` 可选外部引用：纯 JS pg、LangChain embedding/chat、cl100k_base 均能在 CJS bundle 运行，但打包器的外部引用门禁会正确拒绝 pg-native。集成负责人随后补纯 JS 驱动约束与回归，不放宽外部依赖白名单；A 无需在服务层安装原生驱动。
 
+该问题已修复：构建将可选 pg-native 入口映射为遵循 pg 的 MODULE_NOT_FOUND 回退的本地模块，打包依赖仍严格限制为 Electron/Node 内建。新增回归先复现门禁拒绝，再验证实际 CJS bundle 的 pg JavaScript driver、LangChain embedding/chat 和中文 tokenizer 离线运行；main 顺序 check、114 项默认测试、build 均通过。fixture 只构造合成配置，未打开数据库连接或调用模型。
+
 由集成负责人维护，供 A/B/C 查阅。各流自己的交付记录继续留在对应文档；本文件记录合并后的验证与协调事项。用户要求最终仅编译 Windows 版本并启动验证，其他平台不纳入本次交付。
 
 ## 已合入主分支
