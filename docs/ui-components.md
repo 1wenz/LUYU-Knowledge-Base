@@ -103,3 +103,9 @@ Markdown 使用 React 文本/元素实现有限基础语法（标题、段落、
 验证：初始三项入口/CRUD 测试先因缺少行为失败；实现后 `npm run check`、`npm test`（12 项）、`npm run build` 均通过。Edge 生产导出浏览器回归最终 23 项通过，包含慢查询不响应取消仍不能覆盖新结果、主动取消、数据库离线、重排降级、来源版本变化、重复文件导入、安全预览和损坏演示存储。首轮离线测试过早发送快捷键，补充等待工作区加载后全量复验通过。
 
 测试 fixture 用现有 esbuild 在测试进程内打包真实 demo adapter，注入具有同一契约的受控 bridge；生产代码没有测试参数或全局测试入口。共享 DTO、Electron、依赖和锁文件未修改。当前仍依赖 B/A 完成真实桌面服务集成；浏览器证据不代表 PostgreSQL、云端模型或真实窗口拖动已经通过。
+
+### C3 · 流式助手
+
+`useOperation` 在 effect 中建立订阅，点击发送时先登记 operationId，再调用 start；校验 operation schema、id 和递增 seq，终态后忽略后续事件。context 中的引用必须逐字段匹配本次 SearchResponse hits；completed 引用同样受该白名单约束。真实事件驱动检索/生成阶段，流式 Markdown 复用安全预览。切换视图移除订阅并取消任务；主动停止可重发，失败可重试，模型/key 缺失指向设置。靠近底部时跟随文字，向上阅读后暂停跟随并提供回到最新回答按钮。
+
+C3 验证：`npm run check`、`npm test`（12 项）和 `npm run build` 通过；独立 Edge 生产浏览器助手组 4 项通过。测试覆盖 IME、Shift+Enter、空问题、同帧双发送、停止后重发、启动失败恢复、未知 operation、重复 seq、终态后事件、伪造来源、来源打开和视图切换清理。初始来源流测试先因缺少助手输入失败。Border Beam 复用 C1 的聚焦/生成、no-drag 和 reduced motion 行为。

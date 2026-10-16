@@ -36,6 +36,7 @@ import { ImportDialog } from "./import-dialog";
 import { Markdown } from "./markdown";
 import { SearchPanel } from "./search-panel";
 import { SourceDialog } from "./source-dialog";
+import { AssistantPanel } from "./assistant-panel";
 
 type MainView = "notes" | "search" | "assistant" | "settings";
 const navItems: SidebarItem[] = [
@@ -589,10 +590,12 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
             />
           )}
           {view === "assistant" && (
-            <section className="p-8">
-              <h1 className="text-2xl">知识助手</h1>
-              <p className="mt-4">助手界面正在接入共享操作事件。</p>
-            </section>
+            <AssistantPanel
+              client={client}
+              mode={mode}
+              onSource={setSource}
+              onSettings={() => setView("settings")}
+            />
           )}
           {view === "settings" && (
             <section className="p-8">

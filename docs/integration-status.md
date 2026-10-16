@@ -2,6 +2,8 @@
 
 ## 最新协调（2026-10-16）
 
+C3 `df86893` 已在 main 完成整合验证：check、117 项离线测试、build、27 项 Edge 生产浏览器测试全部通过。助手复用 Border Beam，先订阅事件再发送请求，校验 operationId/seq/唯一终态与来源白名单，支持停止、重试和视图切换清理。浏览器使用契约 fixture；真实生成仍等待 A 的服务工厂和聊天 provider，当前不作为付费 API 或桌面 RAG 已接通的证据。
+
 C2 `e3fc75c` 已合入 `8e574bb`：main check、114 项离线测试、build、23 项 Edge 浏览器测试通过。正式工作区使用契约 client，覆盖文档操作、导入去重、冲突保留草稿、来源定位和查询竞态；助手/设置等待 C3/C4。
 
 A 的 `a00270d` 已完成整合验证：check、117 项离线测试、8 项真实数据库测试、build 通过。真实测试覆盖生产 pg adapter、立即可搜索的中文分块、3072 halfvec ANN/float32 重排、过滤/删除和生产 SQL 的 HNSW 执行计划。小样本强制关闭顺序扫描仅证明索引可用，不作为性能/召回率结论。embedding worker、重建和 service factory 等待 A 后续阶段。

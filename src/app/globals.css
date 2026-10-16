@@ -390,6 +390,11 @@
   overflow-y: auto;
 }
 
+.assistant-workspace {
+  height: calc(100dvh - 9rem);
+  min-height: 34rem;
+}
+
 @keyframes border-beam {
   to {
     --beam-angle: 360deg;
