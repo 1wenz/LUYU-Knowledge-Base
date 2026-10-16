@@ -17,3 +17,13 @@
 ## 集成边界
 
 A 的 PostgreSQL/检索服务和 C 的新 UI 不在本分支的实现范围。终验收的混合检索、助手引用、设置 UI 与真实数据库流程需要 CTO 合并两路后验证。没有凭据、独立数据库或用例时不会把 db/live eval 标为通过。
+
+## B1 设置、秘密和诊断
+
+设置位于 userData/settings.json，schemaVersion=1、revision 乐观并发、组级替换、临时文件 fsync 后 rename。损坏和未来版本不覆盖；仅支持显式 v0 settings 包装格式迁移，原文件先备份为 `.v0.bak`。不存在文件时返回默认值，首次修改才写入。单实例进程内串行写入；不支持外部程序同时改写设置文件。
+
+凭据位于独立 credentials.json，仅写 safeStorage 密文；加密不可用时拒绝 encrypted，session 只存内存。删除和切换 session 会先移除旧密文，写入失败保持原状态。没有秘密读回 IPC。常规日志只保留白名单事件、错误码、requestId、耗时、计数。
+
+2026-10-16：18 项测试和 `npm run check` 通过。测试先确认平台模块缺失导致失败，再验证 revision 竞争、UTF-8 限制、损坏/迁移备份、写入失败、删除后重启、加密不可用、会话模式和合成秘密脱敏。
+
+Electron 官方下载器本次 `fetch failed`，直接 GitHub 连接超时。正在复用本机已启用的系统代理进行进程级重试，没有修改全局代理或运行时；下载结果与真实桌面检查在 B2/B3 更新。
