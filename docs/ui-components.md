@@ -6,7 +6,9 @@ Agent C / agent3；分支 `feat/fluid-workspace`，独立 worktree `D:/Warp/zhiy
 
 2026-10-16：完成设计文件、原型和冻结契约阅读。原型使用 localStorage、硬编码分类与同步编辑接口；它不满足 v1 的 PostgreSQL 持久化、软删除、revision、来源检索或助手要求。原型 repository/model 暂留兼容，避免破坏既有业务测试和旧数据。
 
-准备阶段从 `e1ebf13` 建立独立分支，只提交 C 所属的来源记录和获许可资产。正式 UI 与 client 实现在 B 发布完整 M0 后进行，不复制公共 DTO，不修改 package/lockfile、Electron、共享类型或根脚本。所有提交留在此分支，供 CTO 合并。
+准备阶段从 `e1ebf13` 建立独立分支，只提交 C 所属的来源记录和获许可资产。已合入包含 B 的 M0 `34157d2` 的基线 `98c3d9f`。不复制公共 DTO，不修改 package/lockfile、Electron、共享类型或根脚本。所有提交留在此分支，供 CTO 合并。
+
+C1 增加 `/design-preview/`，作为有明确静态样例标识的独立展示与测试入口。首页原型保留，C2 再接统一 client。当前 Button、SidebarMenu、InputMessage、ChatMessage、Dialog 和 TabsSubtle 是逐项审查后的精简适配：保留内层按钮表面/按压、选择与悬停分离、IME、流式稳定换行、Radix 焦点和键盘语义；删除本轮不支持的队列、附件、peek/resize 等功能。C1 使用局部 CSS 动效，没有新增运行时依赖；完整 Motion 变体待 B 锁定依赖后再评估，不能称为未改动的上游全量安装。
 
 ### 给 B 的依赖请求
 
@@ -78,4 +80,14 @@ Geist 和文楷各自的 OFL 原文与字体同目录保留。文楷许可证取
 
 ## 验证记录
 
-准备阶段：仅字体/许可来源及哈希核对，尚未接入应用，也未宣称字体计算结果、布局、功能或浏览器检查通过。完整 M0 后依次执行 `npm run check` → `npm test` → `npm run build` → `npm run test:browser`。正式 DTO 和设置范围从 B 的共享 contracts/schema 导入；主链路需要 A/B 实现后联调。
+准备阶段：fontTools 校验 Geist / Geist Mono 为 100–900 variable，文楷为真实 400；中文代表字形和 OFL 文本检查通过。上游许可正文只清理了行尾空格并补文件末尾换行，许可含义未变。
+
+C1：本地字体、颜色/字号 token、同源毛笔、私人工作区 noindex 和输入 Border Beam 已接入。实测 input 边界后同步修正 Designlang 的对比度。系统与应用减少动态效果均禁用循环边框并保留静态焦点。
+
+2026-10-16 的已执行结果：`npm run check` 通过；`npm test` 12 项通过；`npm run build` 通过（静态导出 `/`、`/design-preview/` 及独立 Electron bundle）；`PLAYWRIGHT_CHANNEL=msedge npm run test:browser` 12 项整体通过（8 项新展示行为 + 4 项原型回归）。独立 worktree 使用原仓库 Node 22.22.0 / npm 10.9.2 激活脚本；本分支不复制或修改全局运行时。首次 IME 测试在展示页缺失时失败，之后补实现；开发环境启动/默认 Node 16/预览端口和测试定位的失败已排除，最终以生产导出测试为准。原型损坏数据提示的定位补充内容筛选，排除 Next 的空 route-announcer，保留不覆盖原数据的断言。
+
+生产预览针对 IME、发送/空输入、焦点恢复、Ctrl+K / Ctrl+,、深色和 reduced motion、1380×900 / 960×640 / 390×844、本地字体、noindex、200% CSS 缩放进行行为测试。CSS 缩放不等价于 Windows 125% 系统缩放，后者仍由真实 Windows 桌面验收补齐。
+
+无障碍证据：axe-core 4.14.0 仅下载至忽略的 `.cache/ui-c1` 用于验证，按 npm SHA-512 integrity 核对，没有改共享依赖。浅色与深色页面各 24 项检查通过，WCAG 2 A/AA 与 2.1 AA 自动检查 0 项违规；CDP `CSS.getPlatformFontsForNode` 确认中文标题实际使用自定义 `LXGW WenKai Screen` 字形、拉丁品牌文字使用自定义 `Geist` 字形。代表性中文字体元数据检查通过，完整字库无缺字承诺仍需真实内容验证。
+
+截图与报告：`.cache/ui-c1/light-1380.png`、`dark-1380.png`、`dark-390.png`、`accessibility.json`。人工截图曾发现侧栏管道转码成问号，已修正源文本并加入页面乱码回归检查。自动报告和截图不是整条真实知识库链路验收；C2–C4 仍需共享 client、A/B 服务和设置联调。

@@ -45,7 +45,7 @@ test("分类筛选和快捷键", async ({ page }) => {
 test("损坏的数据不会被编辑覆盖", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("zhiyu:notes:v1", "{broken"));
   await page.goto("/");
-  await expect(page.getByRole("alert")).toContainText("写入已暂停");
+  await expect(page.getByRole("alert").filter({ hasText: "写入已暂停" })).toBeVisible();
   await expect(page.getByRole("button", { name: "新建笔记", exact: true })).toBeDisabled();
   expect(await page.evaluate(() => localStorage.getItem("zhiyu:notes:v1"))).toBe("{broken");
 });

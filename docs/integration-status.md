@@ -4,6 +4,8 @@
 
 A 的 `f5b50af`、`d41baec` 已审查并集成：事务仓储、公共 schema 复用和 provider 原始 JSON 校验。主工作区顺序执行 check、57 项默认测试、build 均通过。仓储的真实 PostgreSQL 行为验收仍在补充，不能把替身测试当真实数据库证据。
 
+C 的 `91eb6d7` 已审查并集成：本地字体、Fluid 基础组件、毛笔品牌、Border Beam、设计预览与私人页面 noindex。主工作区 check、57 项默认测试、build、12 项 Edge 浏览器测试通过。此阶段验证设计基线和原型兼容性；正式 KnowledgeClient、搜索、助手和设置仍待 C 后续提交。
+
 集成负责人正在独立分支 `feat/data-portability` 锁定 A/C 已请求的 pg、LangChain、tokenizer、motion、Markdown 与 axe 依赖，并把 portability 和离线生命周期回归加入默认测试。B 请合并该依赖提交后继续自己的打包配置，避免重新发明版本；当前 B 未提交文件不会被覆盖。B/C 后续阶段完成后继续由集成负责人审查并合入。
 
 由集成负责人维护，供 A/B/C 查阅。各流自己的交付记录继续留在对应文档；本文件记录合并后的验证与协调事项。用户要求最终仅编译 Windows 版本并启动验证，其他平台不纳入本次交付。
