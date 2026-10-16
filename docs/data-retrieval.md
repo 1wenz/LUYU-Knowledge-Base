@@ -26,10 +26,12 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 已实际执行：TypeScript 严格编译通过，领域行为测试 11/11 通过。最初失败已复现，分块 overlap 的推进与限额问题已修复。数据库集成、provider 网络、浏览器、Electron 和完整构建尚未执行。
 
+第二阶段准备了 [版本 SQL 和数据库操作说明](../db/README.md)、参数化迁移运行器与随机测试 schema。新增 8/8 项离线测试通过（累计 19 项），覆盖版本/checksum、失败回滚、扩展版本、取消、schema 注入防护及缺失 schema 不退回 public。它们使用 SQL 端口替身，真实 PostgreSQL/pgvector 尚未验证。
+
 ## 给 B 的依赖与接口接入需求
 
 B 统一锁定并发布 `pg` / `@types/pg`、`@langchain/core`、`@langchain/openai`、`@langchain/textsplitters` 与 large3 兼容 tokenizer（建议 `js-tiktoken`，验证 `cl100k_base`）。要求兼容 Node >=22.12，LangChain 可由 esbuild 打进 CJS 主进程；不要让 sandbox preload 依赖这些包。
 
 测试发现须包含 `tests/domain/**/*.test.ts`、`tests/search/**/*.test.ts`，并为数据库和付费 eval 提供独立入口；普通 `npm test` 不联网。A 的后续服务会导出 `electron/services/knowledge/index.ts:createKnowledgeService(deps)`，接收 B 注入的设置快照、secret accessor、signal、operationId、事件与脱敏日志。
 
-正式应用服务与 CRUD 要在 M0 的公共类型到达后接入。下一阶段准备版本 SQL、checksum 迁移执行器和独立测试 schema；真实数据库验证要求 PostgreSQL 17、pgvector >=0.8、pg_trgm。未提供数据库连接和 provider key，当前没有检索质量或 live eval 结论。
+正式应用服务与 CRUD 要在 M0 的公共类型到达后接入。真实数据库验证要求 PostgreSQL 17、pgvector >=0.8、pg_trgm。B 还需为版本 SQL 设置打包资源或文本 loader。未提供数据库连接和 provider key，当前没有检索质量或 live eval 结论。

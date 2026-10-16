@@ -1,5 +1,12 @@
 export type DomainErrorCode =
-  "INVALID_INPUT" | "NOT_FOUND" | "CONFLICT" | "SCHEMA_MISMATCH" | "INDEX_NOT_READY";
+  | "INVALID_INPUT"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "SCHEMA_MISMATCH"
+  | "INDEX_NOT_READY"
+  | "DATABASE_UNAVAILABLE"
+  | "CANCELLED"
+  | "TIMEOUT";
 
 /** Internal domain error; the platform maps this to the public error envelope. */
 export class DomainError extends Error {
