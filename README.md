@@ -2,9 +2,9 @@
 
 使用 **Electron + Next.js App Router + shadcn/ui** 构建的本地优先知识库桌面工程，使用 TypeScript 和 Tailwind CSS。
 
-当前 `feat/desktop-platform` 分支交付 Agent2 的公共契约、桌面安全 IPC、设置/加密凭据、窗口与 Windows 打包。PostgreSQL + pgvector 的 v1 架构以 [architecture-v1.md](docs/architecture-v1.md) 为准。
+设计交付入口：[架构](docs/architecture-v1.md)、[设计规范](Designlang.md)、[公共契约](docs/contracts-v1.md)、[开发原则](docs/development-principles.md)、[三位 Agent 的分工](docs/agents/README.md)。
 
-知识服务工厂需要 CTO 合并 Agent A 后注入，Fluid UI 和旧笔记导入需要合并 Agent C。未接入服务时知识 API 明确返回 CONFIG_REQUIRED；本分支保留的 localStorage 工作区是初始化原型，不能作为 v1 数据库、混合检索或助手已经联通的证明。验证范围与未完成项见 [validation.md](docs/validation.md)。
+当前 main 已合并 Fluid 工作区、来源检索、助手/设置界面、桌面平台及事务存储/检索/向量索引模块。生产知识服务工厂仍在整合，Windows 最终包与真实桌面数据库链路尚未完成；最新证据见 [集成记录](docs/integration-status.md)。浏览器演示和 provider mock 测试不能代表真实云端链路已经通过。
 
 ## 开始开发
 
@@ -34,7 +34,7 @@ npm run dev
 | `npm run dev`              | 同时启动 Next.js 和 Electron                          |
 | `npm run dev:web`          | 浏览器开发，地址 `http://127.0.0.1:3000`              |
 | `npm run check`            | Web、Electron、E2E 类型检查与 ESLint                  |
-| `npm test`                 | 自动发现 domain/search/contracts/platform 测试        |
+| `npm test`                 | 自动发现领域、检索、契约、平台、备份导出与回归测试     |
 | `npm run test:db`          | 独立 TEST_DATABASE_URL 的数据库集成测试               |
 | `npm run eval:live`        | 显式开关、两家 key、独立测试库与正整数预算的付费 eval |
 | `npm run build`            | Next.js 静态导出 + Electron 编译                      |
@@ -63,7 +63,9 @@ npm run test:desktop
 
 ## 桌面设置与构建资料
 
-默认数据库为本机 127.0.0.1:5432、zhiyu/zhiyu；远程连接必须 verify-full。数据库密码及 OpenRouter/Cohere key 只经 settings/secrets IPC 由主进程保管。Windows safeStorage 不可用时可选择 session，不写明文；接口不能读回密钥。设置保存在现有 userData/settings.json，秘密密文在独立 credentials.json，不改变原 appId、productName 或正式 userData 路径。
+数据库由用户独立安装或连接已有实例，安装包不内嵌 PostgreSQL。需要 PostgreSQL >=17、public schema 中的 pgvector >=0.8 与 pg_trgm；角色、扩展、备份和迁移说明见 [db/README.md](db/README.md)。默认连接为本机 127.0.0.1:5432、数据库/角色 zhiyu，远程连接必须 verify-full。数据库密码及 OpenRouter/Cohere key 只经 settings/secrets IPC 由主进程保管。Windows safeStorage 不可用时可选择 session，不写明文；接口不能读回密钥。设置保存在现有 userData/settings.json，秘密密文在独立 credentials.json，不改变原 appId、productName 或正式 userData 路径。
+
+聊天模型初始为空，须在“模型与 API”选择或填写实际可用的 OpenRouter ID。设置覆盖 embedding 维度、分块/重叠、两路候选与权重、重排、结果片段、温度和上下文预算。索引配置保存后需要明确开始重建，保留旧索引至新代次完成。字体、毛笔品牌、Border Beam 与交互规范见必读的 Designlang.md。
 
 图标从 `public/brand/brush.svg` 同源生成到忽略目录 `.cache/branding/`，含 16/24/32/48/64/128/256 ICO；静态导出后复制 favicon、OG 与窗口图标到 out。主进程/preload 分别 bundle，构建检查 preload 仅依赖 Electron，主进程仅使用 Node 内建和 Electron。目录包不启动 Next 生产服务器。
 
@@ -73,7 +75,7 @@ Windows 拖动测试使用限定进程/窗口的 SendInput，记录真实 bounds
 
 ## CTO 集成与数据兼容
 
-公共类型入口是 `src/lib/contracts/index.ts`，schema 与精确服务接口见 [contracts-v1.md](docs/contracts-v1.md)。在 `electron/main.ts` 中给 `createPlatform` 注入 A 导出的 `createKnowledgeService`，再接入 C 的真实 KnowledgeClient。服务必须服从 signal，applySettings 关闭旧 pool 并重读秘密，dispose 释放连接和 worker。C 负责把图标 metadata、noindex、Geist/文楷与关于 UI 接入；桌面 API 已提供 public developer 和运行版本。
+公共类型入口是 `src/lib/contracts/index.ts`，schema 与精确服务接口见 [contracts-v1.md](docs/contracts-v1.md)。C 的工作区已使用真实 KnowledgeClient 边界，浏览器 demo 必须明确选择。在 `electron/main.ts` 中注入 A 的完整服务工厂与可信迁移资源是接下来待完成的组合根工作。服务必须服从 signal，applySettings 关闭旧 pool 并重读秘密，dispose 释放连接和 worker；UI 已接入图标 metadata、noindex、本地 Geist/文楷与关于信息。
 
 设置采用 schemaVersion 和 revision；损坏或未来版本保持原样，显式 v0 格式迁移先保存 `.v0.bak`。旧 localStorage 笔记由 C 的用户触发导入流程提交，不自动清理。回滚前备份原型 localStorage、userData 的设置/密文以及 PostgreSQL 数据和迁移版本。safeStorage 密文绑定原 Windows 安全上下文，不能视为可跨机器迁移的 API key 导出。
 
@@ -83,7 +85,9 @@ Windows 拖动测试使用限定进程/窗口的 SendInput，记录真实 bounds
 electron/                主进程、preload 和桌面资源协议
 src/app/                 页面、布局与全局主题
 src/components/ui/       从 shadcn/ui registry 引入的基础组件
-src/features/knowledge/  笔记模型、存储接口、编辑器和工作区
+src/features/workspace/  契约工作区、笔记编辑、来源检索、助手与设置
+src/lib/contracts/       公共 DTO、schema 和服务/客户端接口
+src/lib/domain/          领域校验、分块、融合和来源规则
 src/lib/                 公共工具和桌面桥接类型
 scripts/                 开发、预览与本地运行时脚本
 tests/                   业务测试、浏览器测试、桌面冒烟测试
@@ -94,6 +98,6 @@ docs/                    架构、后续计划与初始化记录
 
 每完成一个独立阶段，执行相关检查后创建本地提交，约定写在 [AGENTS.md](AGENTS.md)。
 
-原型已分阶段保存，平台改动均交付在 `feat/desktop-platform`，交由 CTO 合并；不推送远程、不改写历史。当前权限配置允许 Git 写入。旧 `commit-initialization.mjs --apply` 的历史 fingerprint 已失效，不要再运行；阶段提交与证据见 [验证报告](docs/validation.md)。
+原型已分阶段保存，三个实现分支的已完成阶段由集成负责人依次审查、验证和合入 main；不推送远程、不改写历史。旧 `commit-initialization.mjs --apply` 的历史 fingerprint 已失效，不要再运行；平台证据见 [验证报告](docs/validation.md)，最新整合结果以 [集成记录](docs/integration-status.md) 为准。
 
 原有 Prime Agent 工具继续保留，并从业务工程 Git 跟踪和格式检查中忽略。
