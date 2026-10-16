@@ -4,14 +4,14 @@
 
 ## 当前完成范围
 
-这是一组可审查的数据层阶段交付，完整知识服务尚未接通。
+已提供完整主进程服务工厂、PostgreSQL 存储与检索、可恢复索引和知识助手，等待 B 接入组合根并打包迁移资源。真实 provider 路由和 live 质量评估尚未执行。
 
 - `src/lib/domain/`：共享 schema 驱动的标题/标签/正文/revision 校验、写入与查询一致的中文词项、字面通配符转义与短词计划、Markdown 结构优先的分块核心、RRF、provider 响应校验、引用白名单与上下文限额。
 - `electron/services/knowledge/database/`：SQL 端口、版本/checksum 迁移器、事务与脱敏错误、typed documents/collections 仓储。
 - `database/postgres.ts` 提供注入配置/密码的受限 pg 连接池；`indexing/writer.ts` 作为仓储 `onRevision`，同事务生成 token 分块、带权 FTS 和 pending job。`retrieval/postgres.ts` 提供两路参数化 SQL、统一过滤及来源复核。
 - `db/`：完整 generations/chunks/embeddings/jobs/imports 的版本 SQL、3072 halfvec 与 1536 vector HNSW 索引、默认三分类，以及初始化/备份/迁移/回滚说明。
 - `tests/domain/`：领域、迁移控制流、随机 schema 与仓储行为测试。`tests/integration/test-schema.ts` 提供只清理自己创建的随机 schema 的助手。
-- `electron/services/knowledge/retrieval/hybrid.ts`：`createHybridSearch(ports)`，关键词与 query embedding 并行、active profile 查询、稳定 RRF、最多 50 个 Rerank 候选、失败降级及来源 revision 前后复核。SQL 召回端口尚未接通。
+- `electron/services/knowledge/retrieval/hybrid.ts`：`createHybridSearch(ports)`，关键词与 query embedding 并行、active profile 查询、稳定 RRF、最多 50 个 Rerank 候选、失败降级及来源 revision 前后复核，工厂连接真实 PostgreSQL 召回端口。
 - `electron/services/knowledge/providers/cohere.ts`：可注入 fetch 的真实 Cohere v2 HTTP adapter，固定 `rerank-v3.5`，校验 `top_n` 与响应 index，鉴权不重试，429/短暂 5xx/网络最多重试两次。总预算覆盖请求、响应体和退避，取消不依赖 provider 遵守 signal。尚未调用真实 API。
 - `providers/openrouter.ts`：LangChain `Embeddings` 兼容 adapter，固定 OpenRouter large3 endpoint/model，显式传维度，响应按 index 复原。默认每批最多 16 段/8192 token、并发 2，最多 2 次显式重试，所有实际请求经过预算钩子；批次失败取消其余请求。
 - `indexing/worker.ts`：持久化租约、`SKIP LOCKED` 领取、网络在事务外、每批条件写回、配置/版本/内容缓存、取消释放和过期租约恢复；每任务最多领取 5 次。部分成功保留，后续只补缺失向量。`003_embedding_cache.sql` 新增缓存查找索引，不改写已发布迁移。
@@ -43,11 +43,21 @@ SQL 召回阶段在本分支顺序通过 `npm run check` → `npm test`（112/11
 
 embedding/worker 阶段顺序通过 `npm run check` → `npm test`（116/116）→ `npm run build`；真实数据库组 7/7 通过，新增缓存复用、修改/删除期间拒绝旧响应、部分成功后重启补缺、过期租约恢复、取消与维度错误的持久化验证。OpenRouter HTTP 全部为合成 mock；尚无真实路由/付费用量结论。
 
+generation 阶段新增 `indexing/manager.ts`：旧 active 持续查询，短事务补齐 building 当前 revision，独占 catalog advisory lock 内核对所有文档/任务/向量后原子切换；失败或取消保留旧 active。后台与前台重建共享 worker，每实例最多两个在途任务。`recover` 补齐重启遗留 building，并在就绪后完成切换。新增三项真实数据库测试验证 3072→1536、重建中编辑、取消/认证失败和重启恢复，全部通过。本工作区随后顺序 check、128 项离线测试、build 与 12 项真实数据库测试通过；后两组的新增助手/工厂文件在各自后续阶段提交，网络均为合成替身。
+
+助手阶段提供模型目录与免费鉴权探测、LangChain ChatOpenAI 流、完整 chunk 上下文、跨 delta 引用编号白名单、token/每文档预算及来源 revision 复核。聊天模型未选择则拒绝生成，无证据直接返回中文“资料不足”。温度仅在目录明确支持时传递；未知能力为 null。显式隔离 LangChain 回调，测试开启环境 tracing/verbose 时无笔记日志与追踪请求。新增 10 项离线行为/真实 SDK mock HTTP 测试通过，已包含在上述 128 项全量结果中。模型目录和未知 tokenizer 的窗口估算不代表模型路由已验证；聊天 token 采用 cl100k_base 估算，不声称适配任意模型的精确 tokenizer。
+
 ## 尚需完成与给 B 的依赖请求
 
 已合入 CTO 发布的 `b7a9b77` 共享依赖/测试基线，版本见 [dependency-baseline.md](dependency-baseline.md)。本 worktree 独立 `npm ci` 成功；A 没有另行修改 package/lockfile。ESM 依赖由 esbuild 打入 CJS 主进程，sandbox preload 不加载它们。
 
-完整 `createKnowledgeService(deps)`、LangChain LLM adapter、generation 重建切换、知识助手与 live eval 尚未交付，不应在平台中把当前仓储与端口编排冒充完整服务。B 还需提供迁移 SQL 的打包资源或文本 loader；资源列表现在包括 `003_embedding_cache.sql`。
+`electron/services/knowledge/index.ts` 导出同步 `createKnowledgeService(deps, options?)`，返回公共 `KnowledgeService` 全部方法；平台可直接使用一个参数。初始化延迟到首次数据库业务调用，失败不阻止设置与模型鉴权；连接探测只读，不执行迁移。后台恢复与两个 worker 共用受限实例。切换数据库或密码取消旧运行实例并关闭连接池；下一请求重新初始化。同库更换 embedding key 可释放失败任务，不自动建立新 generation。`dispose` 幂等，取消调用和后台并等待数据库连接释放。A 不发送 started/seq/终态，也不维护 owner registry，由 B 包装 `OperationContext.emit`。
+
+可信 options 只供组合根/测试注入：`migrationDirectory`、`migrations`、`schema`、`background`、`fetch`、`createPool`。禁止将这些配置暴露给 Renderer。默认从主进程 bundle 旁的 `db/migrations/` 读取三份正式 SQL（`001_knowledge.sql`、`002_search_indexes.sql`、`003_embedding_cache.sql`），即发布目录 `dist-electron/db/migrations/`。B 应复制原始 UTF-8 文件并保持 checksum，或注入受信任的 `Migration[]`；不引入第二份手写 SQL。资源缺失返回 `SCHEMA_MISMATCH`。生产必须消费 CTO 的 `3eaae12`（纯 JS pg 打包修复），不能把 `pg-native` 作为外部运行时依赖。
+
+工厂阶段顺序通过 `npm run check` → `npm test`（128/128）→ `npm run build` → `npm run test:db`（12/12）。新增两项离线生命周期测试和两项真实 PostgreSQL 服务测试，覆盖即时中文 FTS→后台 embedding→语义改写→Cohere 顺序→完整上下文引用→编辑 revision→1536 重建，以及只读探测、连接/密码改变、dispose。HTTP 为合成 mock；这证明服务编排与实际 SDK/SQL 接通，尚不证明 IPC/UI 或真实模型质量。现有 build 入口未引用本工厂，B 接入后仍需完整 bundle/桌面/Windows 包验收。
+
+live eval 语料、独立预算 runner 与报告是下一阶段剩余交付。
 
 真实数据库验收需要明确的专用 `TEST_DATABASE_URL`、PostgreSQL >=17、public schema 的 pgvector >=0.8 和 pg_trgm；包括 CRUD/并发/导入/中文 FTS/短词/3072 索引 EXPLAIN/恢复任务/索引切换。应用服务不读取 process.env 或磁盘设置/秘密。
 

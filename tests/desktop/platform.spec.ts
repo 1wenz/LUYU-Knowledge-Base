@@ -5,7 +5,7 @@ import { desktopFixture } from "./fixtures";
 import type { KnowledgeClient } from "../../src/lib/contracts";
 import "../../src/lib/desktop";
 
-test("真实 preload 固定 API、参数攻击和未接服务状态", async () => {
+test("真实 preload 固定 API、参数攻击和数据库断联状态", async () => {
   const { application, page } = await desktopFixture();
   try {
     await page.waitForFunction(() => !!window.desktop?.system);
@@ -32,7 +32,7 @@ test("真实 preload 固定 API、参数攻击和未接服务状态", async () =
     expect(results.settings.ok && results.settings.value.settings.database.sslMode).toBe("disable");
     expect(!results.badUrl.ok && results.badUrl.error.code).toBe("INVALID_INPUT");
     expect(!results.badEnum.ok && results.badEnum.error.code).toBe("INVALID_INPUT");
-    expect(!results.unavailable.ok && results.unavailable.error.code).toBe("CONFIG_REQUIRED");
+    expect(!results.unavailable.ok && results.unavailable.error.code).toBe("DATABASE_UNAVAILABLE");
     expect(results.arbitraryInvoke).toBe(false);
     expect(results.node).toBe(false);
     const security = await application.evaluate(({ BrowserWindow }) => {

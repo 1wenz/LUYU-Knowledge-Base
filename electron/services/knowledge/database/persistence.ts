@@ -19,12 +19,12 @@ import type { SqlConnection, SqlPool } from "./ports";
 import { inTransaction } from "./transactions";
 import { lockGenerations } from "./index-lock";
 
-type StoredDocument = Omit<Document, "createdAt" | "updatedAt" | "deletedAt"> & {
+export type StoredDocument = Omit<Document, "createdAt" | "updatedAt" | "deletedAt"> & {
   createdAt: string | Date;
   updatedAt: string | Date;
   deletedAt: string | Date | null;
 };
-const columns =
+export const documentColumns =
   'id, collection_id AS "collectionId", title, content_markdown AS "contentMarkdown", tags, favorite, revision, created_at AS "createdAt", updated_at AS "updatedAt", deleted_at AS "deletedAt"';
 
 function parse<T>(schema: ZodType<T>, input: unknown, field?: PublicError["field"]): T {
@@ -39,7 +39,7 @@ function iso(value: string | Date): string {
     throw new DomainError("SCHEMA_MISMATCH", "数据库时间格式无效");
   return date.toISOString();
 }
-function mapDocument(row: StoredDocument): Document {
+export function mapDocument(row: StoredDocument): Document {
   return {
     ...row,
     createdAt: iso(row.createdAt),
@@ -75,7 +75,7 @@ export function createPersistence(deps: {
     );
   const lockedDocument = async (connection: SqlConnection, id: string) => {
     const result = await connection.query<StoredDocument>(
-      `SELECT ${columns} FROM documents WHERE id = $1 FOR UPDATE`,
+      `SELECT ${documentColumns} FROM documents WHERE id = $1 FOR UPDATE`,
       [id],
     );
     return result.rows[0] ? mapDocument(result.rows[0]) : null;
@@ -104,12 +104,12 @@ export function createPersistence(deps: {
       const current = await lockedDocument(connection, id);
       assertMutableRevision(current, expectedRevision, false);
       result = await connection.query<StoredDocument>(
-        `UPDATE documents SET collection_id = $2, title = $3, content_markdown = $4, tags = $5, revision = revision + 1, updated_at = GREATEST($6::timestamptz, updated_at) WHERE id = $1 AND revision = $7 AND deleted_at IS NULL RETURNING ${columns}`,
+        `UPDATE documents SET collection_id = $2, title = $3, content_markdown = $4, tags = $5, revision = revision + 1, updated_at = GREATEST($6::timestamptz, updated_at) WHERE id = $1 AND revision = $7 AND deleted_at IS NULL RETURNING ${documentColumns}`,
         [id, collectionId, title, contentMarkdown, tags, timestamp, expectedRevision],
       );
     } else {
       result = await connection.query<StoredDocument>(
-        `INSERT INTO documents (id, collection_id, title, content_markdown, tags, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING ${columns}`,
+        `INSERT INTO documents (id, collection_id, title, content_markdown, tags, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING ${documentColumns}`,
         [parse(uuidSchema, deps.createId()), collectionId, title, contentMarkdown, tags, timestamp],
       );
     }
@@ -138,7 +138,7 @@ export function createPersistence(deps: {
             ? "deleted_at = $3::timestamptz"
             : "deleted_at = NULL";
       const result = await connection.query<StoredDocument>(
-        `UPDATE documents SET ${assignment}, revision = revision + 1, updated_at = GREATEST($3::timestamptz, updated_at) WHERE id = $1 AND revision = $2 RETURNING ${columns}`,
+        `UPDATE documents SET ${assignment}, revision = revision + 1, updated_at = GREATEST($3::timestamptz, updated_at) WHERE id = $1 AND revision = $2 RETURNING ${documentColumns}`,
         kind === "favorite"
           ? [value.id, value.expectedRevision, timestamp, favorite!]
           : [value.id, value.expectedRevision, timestamp],
@@ -200,7 +200,7 @@ export function createPersistence(deps: {
           context,
           async (connection) => {
             const result = await connection.query<StoredDocument>(
-              `SELECT ${columns} FROM documents WHERE id = $1`,
+              `SELECT ${documentColumns} FROM documents WHERE id = $1`,
               [value],
             );
             if (!result.rows[0]) throw new DomainError("NOT_FOUND", "笔记不存在");
@@ -226,7 +226,7 @@ export function createPersistence(deps: {
               filters,
             );
             const result = await connection.query<StoredDocument>(
-              `SELECT ${columns} FROM documents WHERE ${predicate} ORDER BY updated_at DESC, id OFFSET $5 LIMIT $6`,
+              `SELECT ${documentColumns} FROM documents WHERE ${predicate} ORDER BY updated_at DESC, id OFFSET $5 LIMIT $6`,
               [...filters, value.offset, value.limit],
             );
             return {

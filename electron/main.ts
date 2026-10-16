@@ -3,6 +3,8 @@ import { join, resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { requestSchemas, type AppInfo } from "../src/lib/contracts";
 import { createPlatform } from "./composition";
+import { createKnowledgeService } from "./services/knowledge";
+import { knowledgeMigrations } from "./platform/migration-resources";
 import { IpcDispatcher } from "./ipc/dispatcher";
 import { SenderGate } from "./ipc/sender";
 import { createSafeLogger, PlatformError } from "./platform/errors";
@@ -73,7 +75,8 @@ else
           });
           return selection.canceled ? { files: [] } : readPickedTextFiles(selection.filePaths);
         },
-        // CTO integration: inject Agent A's createKnowledgeService here after merging its service implementation.
+        createKnowledgeService: (deps) =>
+          createKnowledgeService(deps, { migrations: knowledgeMigrations }),
       });
       const dispatcher = new IpcDispatcher(gate, platform.handlers, platform.logger);
       for (const channel of Object.keys(requestSchemas))

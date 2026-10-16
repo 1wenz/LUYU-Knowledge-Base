@@ -4,7 +4,7 @@
 
 设计交付入口：[架构](docs/architecture-v1.md)、[设计规范](Designlang.md)、[公共契约](docs/contracts-v1.md)、[开发原则](docs/development-principles.md)、[三位 Agent 的分工](docs/agents/README.md)。
 
-当前 main 已合并 Fluid 工作区、来源检索、助手/设置界面、桌面平台及事务存储/检索/向量索引模块。生产知识服务工厂仍在整合，Windows 最终包与真实桌面数据库链路尚未完成；最新证据见 [集成记录](docs/integration-status.md)。浏览器演示和 provider mock 测试不能代表真实云端链路已经通过。
+当前 main 已接通 Fluid 工作区、来源检索、助手/设置界面、桌面平台及 PostgreSQL 服务，真实桌面保存、检索、来源与重启持久化链路已通过。Windows 最终包仍在准备；最新证据见 [集成记录](docs/integration-status.md)。浏览器演示和 provider mock 测试不能代表真实云端链路已经通过。
 
 ## 开始开发
 
@@ -75,7 +75,7 @@ Windows 拖动测试使用限定进程/窗口的 SendInput，记录真实 bounds
 
 ## CTO 集成与数据兼容
 
-公共类型入口是 `src/lib/contracts/index.ts`，schema 与精确服务接口见 [contracts-v1.md](docs/contracts-v1.md)。C 的工作区已使用真实 KnowledgeClient 边界，浏览器 demo 必须明确选择。在 `electron/main.ts` 中注入 A 的完整服务工厂与可信迁移资源是接下来待完成的组合根工作。服务必须服从 signal，applySettings 关闭旧 pool 并重读秘密，dispose 释放连接和 worker；UI 已接入图标 metadata、noindex、本地 Geist/文楷与关于信息。
+公共类型入口是 `src/lib/contracts/index.ts`，schema 与精确服务接口见 [contracts-v1.md](docs/contracts-v1.md)。工作区使用真实 KnowledgeClient 边界，浏览器 demo 必须明确选择。`electron/main.ts` 的组合根注入完整服务工厂与可信 SQL 迁移资源；服务延迟连接，数据库断联时设置仍可访问。服务服从 signal，数据库/密码变化关闭旧 pool 并重读秘密，dispose 释放连接和 worker；UI 已接入图标 metadata、noindex、本地 Geist/文楷与关于信息。
 
 设置采用 schemaVersion 和 revision；损坏或未来版本保持原样，显式 v0 格式迁移先保存 `.v0.bak`。旧 localStorage 笔记由 C 的用户触发导入流程提交，不自动清理。回滚前备份原型 localStorage、userData 的设置/密文以及 PostgreSQL 数据和迁移版本。safeStorage 密文绑定原 Windows 安全上下文，不能视为可跨机器迁移的 API key 导出。
 
