@@ -91,3 +91,15 @@ C1：本地字体、颜色/字号 token、同源毛笔、私人工作区 noindex
 无障碍证据：axe-core 4.14.0 仅下载至忽略的 `.cache/ui-c1` 用于验证，按 npm SHA-512 integrity 核对，没有改共享依赖。浅色与深色页面各 24 项检查通过，WCAG 2 A/AA 与 2.1 AA 自动检查 0 项违规；CDP `CSS.getPlatformFontsForNode` 确认中文标题实际使用自定义 `LXGW WenKai Screen` 字形、拉丁品牌文字使用自定义 `Geist` 字形。代表性中文字体元数据检查通过，完整字库无缺字承诺仍需真实内容验证。
 
 截图与报告：`.cache/ui-c1/light-1380.png`、`dark-1380.png`、`dark-390.png`、`accessibility.json`。人工截图曾发现侧栏管道转码成问号，已修正源文本并加入页面乱码回归检查。自动报告和截图不是整条真实知识库链路验收；C2–C4 仍需共享 client、A/B 服务和设置联调。
+
+### C2 · 契约工作区与来源检索
+
+新增 `src/features/workspace/` 与 `src/lib/client/`。默认浏览器入口要求主动选择演示；`/?demo=1` 使用独立 `zhiyu:demo:v1` 存储，首次为空，损坏时阻止打开并保留原内容。桌面要求完整的白名单 `KnowledgeClient`，缺失方法显示配置错误。`/?legacy=1` 仅保留原型回归与旧数据访问，不作为桌面入口。
+
+笔记接入 documents/collections API，支持完整读取、以 revision 保存、收藏、回收站、恢复、分类创建/重命名、标签筛选和分页。列表筛选明确只针对已加载标题与摘要；来源检索独立使用 300ms debounce、请求取消和 requestId 淘汰。结果显示片段数量、真实 mode/warnings、时间与行号。来源弹窗读取当前笔记并核对 revision，版本变化时不高亮旧行；关闭恢复原来源按钮焦点与查询。
+
+Markdown 使用 React 文本/元素实现有限基础语法（标题、段落、列表文本、代码块、粗体和链接），没有原始 HTML 执行入口。图片显示占位文本，外链只允许不含凭据的 HTTP(S) 并走 `system.openExternal`。文件选择走 `system.pickTextFiles`，审核后使用共享 import schema；源 hash 确保重复批次不创建副本。旧版导入只读原存储，任何失败都不删除源数据。保存冲突保留草稿，必须显式读取最新保存基线才能继续提交。
+
+验证：初始三项入口/CRUD 测试先因缺少行为失败；实现后 `npm run check`、`npm test`（12 项）、`npm run build` 均通过。Edge 生产导出浏览器回归最终 23 项通过，包含慢查询不响应取消仍不能覆盖新结果、主动取消、数据库离线、重排降级、来源版本变化、重复文件导入、安全预览和损坏演示存储。首轮离线测试过早发送快捷键，补充等待工作区加载后全量复验通过。
+
+测试 fixture 用现有 esbuild 在测试进程内打包真实 demo adapter，注入具有同一契约的受控 bridge；生产代码没有测试参数或全局测试入口。共享 DTO、Electron、依赖和锁文件未修改。当前仍依赖 B/A 完成真实桌面服务集成；浏览器证据不代表 PostgreSQL、云端模型或真实窗口拖动已经通过。

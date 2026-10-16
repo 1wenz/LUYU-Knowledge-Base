@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("笔记的创建、搜索、编辑、收藏、刷新与删除", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await expect(page.getByText("本地存储已就绪")).toBeVisible();
   await expect(page.getByRole("heading", { name: "全部笔记", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "新建笔记", exact: true }).click();
@@ -33,7 +33,7 @@ test("笔记的创建、搜索、编辑、收藏、刷新与删除", async ({ pa
 });
 
 test("分类筛选和快捷键", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await expect(page.getByText("本地存储已就绪")).toBeVisible();
   await page.getByRole("button", { name: /^技术笔记/ }).click();
   await expect(page.getByRole("heading", { name: "技术笔记", exact: true })).toBeVisible();
@@ -44,7 +44,7 @@ test("分类筛选和快捷键", async ({ page }) => {
 
 test("损坏的数据不会被编辑覆盖", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("zhiyu:notes:v1", "{broken"));
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await expect(page.getByRole("alert").filter({ hasText: "写入已暂停" })).toBeVisible();
   await expect(page.getByRole("button", { name: "新建笔记", exact: true })).toBeDisabled();
   expect(await page.evaluate(() => localStorage.getItem("zhiyu:notes:v1"))).toBe("{broken");
@@ -56,7 +56,7 @@ test("空知识库保持为空，并且页面没有运行时错误", async ({ pa
   await page.addInitScript(() =>
     localStorage.setItem("zhiyu:notes:v1", JSON.stringify({ version: 1, notes: [] })),
   );
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await expect(page.getByText("0 条笔记", { exact: true })).toBeVisible();
   await expect(page.getByText("新的知识，从一条笔记开始")).toBeVisible();
   expect(errors).toEqual([]);
