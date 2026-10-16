@@ -57,6 +57,7 @@ process.once("SIGINT", () => void shutdown());
 process.once("SIGTERM", () => void shutdown());
 
 try {
+  await import("./generate-icons.mjs");
   try {
     await fetch(rendererUrl, { signal: AbortSignal.timeout(500) });
     throw new Error("端口 3000 已被占用，请先关闭占用该端口的服务。");

@@ -6,7 +6,13 @@ export async function desktopFixture(existingUserData?: string) {
   const root = resolve(".cache/desktop-tests");
   await mkdir(root, { recursive: true });
   const userData = existingUserData ?? (await mkdtemp(join(root, "user-")));
-  const env = { ...process.env, ZHIYU_TEST_MODE: "1", ZHIYU_TEST_USER_DATA: userData };
+  const env: Record<string, string> = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
+  env.ZHIYU_TEST_MODE = "1";
+  env.ZHIYU_TEST_USER_DATA = userData;
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.ELECTRON_RENDERER_URL;
   const executablePath = process.env.ZHIYU_PACKAGE_EXE;

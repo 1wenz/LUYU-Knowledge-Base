@@ -1,5 +1,21 @@
 # 集成负责人工作记录
 
+## 最新协调（2026-10-16）
+
+A 的 `f5b50af`、`d41baec` 已审查并集成：事务仓储、公共 schema 复用和 provider 原始 JSON 校验。主工作区顺序执行 check、57 项默认测试、build 均通过。后续 `6219623` 的混合检索/Cohere 编排合入 `10ce335`，当前离线测试 109 项通过，专项 Electron 类型和 ESLint 检查通过。
+
+真实仓储验收 `tests/acceptance/persistence-db.test.ts` 已在隔离 PostgreSQL 上通过 5 项（含父测试），覆盖迁移幂等、并发 revision、正文参数化、收藏/软删除/恢复、分类关联、并发重复导入、派生写入失败全事务回滚和新连接持久化。已加入 `npm run test:db` 的发现目录；仅使用显式专用连接和随机 schema。SQL 级索引计划与仓储证据互补，worker/generation/provider 主链路仍待 A 后续提交。
+
+C 的 `91eb6d7` 已审查并集成：本地字体、Fluid 基础组件、毛笔品牌、Border Beam、设计预览与私人页面 noindex。主工作区 check、57 项默认测试、build、12 项 Edge 浏览器测试通过。此阶段验证设计基线和原型兼容性；正式 KnowledgeClient、搜索、助手和设置仍待 C 后续提交。
+
+共享依赖已由 `b7a9b77` 锁定并合入 main（清单见 `docs/dependency-baseline.md`），portability 和离线生命周期回归已纳入默认测试。A 已合入该依赖基线；C 可更新后使用 Markdown 等库。B 的 `85c21b4` Windows 平台交付已合入 `eacb021`，正在验证整合后的 check/test/build/desktop；新增 E2E 类型配置需要 `DOM.Iterable` 来覆盖 C 的 FontFaceSet 测试。各 agent 的活动 worktree 保持独立，后续完成阶段继续审查合并。
+
+B4 `8467d64` 和 E2E 的 DOM.Iterable 修复整合后，main 顺序 check、113 项离线测试、build、5 项真实 Electron 检查全部通过。Windows 用例使用 SendInput 实际拖动标题栏，并验证最大化后的按钮/输入与退出进程清理。最终 Windows 目录包将等待 A/C 主链路合并后重建并实际打开。
+
+额外的离线依赖 bundle 探测已复现 `pg-native` 可选外部引用：纯 JS pg、LangChain embedding/chat、cl100k_base 均能在 CJS bundle 运行，但打包器的外部引用门禁会正确拒绝 pg-native。集成负责人随后补纯 JS 驱动约束与回归，不放宽外部依赖白名单；A 无需在服务层安装原生驱动。
+
+该问题已修复：构建将可选 pg-native 入口映射为遵循 pg 的 MODULE_NOT_FOUND 回退的本地模块，打包依赖仍严格限制为 Electron/Node 内建。新增回归先复现门禁拒绝，再验证实际 CJS bundle 的 pg JavaScript driver、LangChain embedding/chat 和中文 tokenizer 离线运行；main 顺序 check、114 项默认测试、build 均通过。fixture 只构造合成配置，未打开数据库连接或调用模型。
+
 由集成负责人维护，供 A/B/C 查阅。各流自己的交付记录继续留在对应文档；本文件记录合并后的验证与协调事项。用户要求最终仅编译 Windows 版本并启动验证，其他平台不纳入本次交付。
 
 ## 已合入主分支

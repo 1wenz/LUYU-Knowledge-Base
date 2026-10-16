@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol, safeStorage, shell } from "electron";
 import { join, resolve } from "node:path";
+import { existsSync } from "node:fs";
 import { requestSchemas, type AppInfo } from "../src/lib/contracts";
 import { createPlatform } from "./composition";
 import { IpcDispatcher } from "./ipc/dispatcher";
@@ -45,14 +46,7 @@ else
           chrome: process.versions.chrome,
           node: process.versions.node,
         },
-        developer: {
-          name: null,
-          homepage: null,
-          repository: null,
-          support: null,
-          license: "MIT",
-          copyright: null,
-        },
+        developer: ZHIYU_PUBLIC_METADATA,
         mode: "desktop",
       };
       platform = await createPlatform({
@@ -97,6 +91,9 @@ else
           minWidth: 960,
           minHeight: 640,
           frame: true,
+          icon: existsSync(join(app.getAppPath(), "out/brand/brush-256.png"))
+            ? join(app.getAppPath(), "out/brand/brush-256.png")
+            : join(app.getAppPath(), ".cache/branding/brush-256.png"),
           title: "知屿 · Knowledge Base",
           backgroundColor: "#F7F7F2",
           show: false,

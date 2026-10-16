@@ -7,22 +7,27 @@ const require = createRequire(import.meta.url);
 const kind = process.argv[2] ?? "unit";
 const directories = {
   unit: ["domain", "search", "contracts", "platform", "portability", "regressions"],
-  db: ["integration"],
+  db: ["integration", "acceptance"],
   live: ["evals"],
 };
 if (!(kind in directories)) throw new Error("未知测试组。");
-if (kind === "db" && !process.env.TEST_DATABASE_URL) {
+if (kind === "db" && !process.env.TEST_DATABASE_URL?.trim()) {
   console.error("未执行数据库测试：需要独立的 TEST_DATABASE_URL，禁止使用业务库。");
   process.exit(2);
 }
 if (kind === "live") {
   const missing = ["OPENROUTER_API_KEY", "COHERE_API_KEY", "EVAL_DATABASE_URL"].filter(
-    (key) => !process.env[key],
+    (key) => !process.env[key]?.trim(),
   );
-  if (process.env.RUN_LIVE_EVAL !== "1" || missing.length) {
-    console.error("未执行 live eval：需要 RUN_LIVE_EVAL=1 和配置 " + missing.join("、"));
+  const budget = process.env.EVAL_REQUEST_BUDGET?.trim() ?? "";
+  if (!/^[1-9]\d*$/.test(budget) || !Number.isSafeInteger(Number(budget)))
+    missing.push("EVAL_REQUEST_BUDGET（正整数）");
+  if (process.env.RUN_LIVE_EVAL !== "1") missing.unshift("RUN_LIVE_EVAL=1");
+  if (missing.length) {
+    console.error("未执行 live eval：缺少或无效配置 " + missing.join("、"));
     process.exit(2);
   }
+  process.env.EVAL_REQUEST_BUDGET = budget;
 }
 
 async function discover(directory) {
