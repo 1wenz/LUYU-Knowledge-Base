@@ -2,12 +2,12 @@
 
 ## 最终集成验收（2026-10-16）
 
-代码基线 `1e6788b` 包含三位 agent 的最终交付及凭据生命周期修复。main 使用 Node 22.22.0 / npm 10.9.2，先顺序执行 check → test → build，再执行数据库、浏览器和桌面组。以下为最新结果；后面的 B 阶段记录保留历史环境与当时限制。
+代码基线 `f4978c6` 包含三位 agent 的最终交付及凭据生命周期修复。main 使用 Node 22.22.0 / npm 10.9.2，先顺序执行 check → test → build，再执行数据库、浏览器和桌面组。以下为最新结果；后面的 B 阶段记录保留历史环境与当时限制。
 
 | 检查                       | 最新结果           | 证据范围                                                                                                    |
 | -------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `npm run check`            | 通过               | Web/Electron/E2E 类型与 ESLint                                                                              |
-| `npm test`                 | 141 项通过，0 跳过 | 领域、契约、检索、真实 SDK 的合成 HTTP、平台、格式与回归                                                    |
+| `npm test`                 | 142 项通过，0 跳过 | 领域、契约、检索、真实 SDK 的合成 HTTP、平台、格式与回归                                                    |
 | `npm run build`            | 通过               | 本地图标/字体、Next 静态导出、自包含主进程/preload 和 SQL 资源                                              |
 | `npm run test:db`          | 20 项通过，0 跳过  | PostgreSQL 17.6 / pgvector 0.8.6 / pg_trgm 1.6；隔离 schema 中的事务、检索、worker、generation、凭据与 eval |
 | `npm run test:browser`     | 39 项通过          | Edge；工作区/助手/设置、390/960/1380 宽度、200% CSS 缩放、焦点、IME、无障碍和迟到响应                       |
@@ -15,7 +15,7 @@
 | `npm run package:dir`      | 通过               | 最终 Windows x64 目录包                                                                                     |
 | `npm run test:package:win` | 6 项通过，0 跳过   | 实际目录 EXE 复跑全部桌面用例，另核对 PE x64、文件属性及两个原生图标                                        |
 | NSIS 构建与内容校验        | 通过               | 直接使用上述已测目录；解包后主程序及 app.asar 哈希完全一致                                                  |
-| 最终应用打开               | 通过               | 正常应用配置，窗口标题“知屿 · 知识工作区”                                                                   |
+| 最终应用打开               | 通过               | 正常应用配置，窗口标题“知屿 · 知识工作区”；正式 userData 页面无数据库/索引不可用提示                         |
 | `npm run release:check`    | 退出 2，发布未就绪 | 缺真实开发者 name/homepage/repository/support/copyright                                                     |
 | 付费 live eval             | 未执行             | 未提供 OpenRouter/Cohere key；合成 HTTP 不能证明实际模型质量或计费                                          |
 
@@ -25,7 +25,7 @@
 
 本次只生成 Windows x64。程序及 NSIS 的签名均为 NotSigned，未执行安装/卸载或代码签名验收。数据库独立部署；未把 PostgreSQL、凭据、用户数据、运行时、测试输出或包提交到 Git。产物与 SHA-256 见 [Windows 交付说明](windows-delivery.md)。
 
-日志在主工作区忽略的 `.cache/final2-{check,tests,build,db,browser,desktop}.log`、`.cache/final-package-{dir,test}.log`、`.cache/final-installer.log`。JSON 证据为 `.cache/windows-package-report.json`、`.cache/desktop-drag.json`、`.cache/final-installer-report.json` 与 `.cache/final-launch.json`。测试隔离 userData/数据库；最后供用户查看的启动使用正常应用配置。
+日志在主工作区忽略的 `.cache/final2-{check,tests,build,db,browser,desktop}.log`、`.cache/final-package-{dir,test}.log`、`.cache/final-installer.log`。JSON 证据为 `.cache/windows-package-report.json`、`.cache/desktop-drag.json`、`.cache/final-installer-report.json`、`.cache/final-launch.json` 与 `.cache/final-normal-userdata-ui.json`。测试隔离 userData/数据库；最后供用户查看的启动使用正常应用配置。
 
 ## 平台分支历史交付
 

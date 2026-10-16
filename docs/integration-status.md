@@ -2,9 +2,9 @@
 
 ## 最新协调（2026-10-16）
 
-最终代码基线 `1e6788b` 已完成 Windows 实验交付：A 的 eval `482d6e0` / `f90bdd9`、B 的平台交付、C5 `9e188a0` 和凭据生命周期修复 `1a060bf` 均已合入 main。顺序 check → 141 项离线测试 → build 通过，随后 20 项真实 PostgreSQL、39 项 Edge 浏览器、6 项真实桌面测试全部通过。索引提示按实际统计显示“项任务”。
+最终代码基线 `f4978c6` 已完成 Windows 实验交付：A 的 eval `482d6e0` / `f90bdd9`、B 的平台交付、C5 `9e188a0` 和凭据生命周期修复 `1a060bf` 均已合入 main。顺序 check → 142 项离线测试 → build 通过，随后 20 项真实 PostgreSQL、39 项 Edge 浏览器、6 项真实桌面测试全部通过。索引提示按实际统计显示“项任务”。
 
-重新生成 Windows x64 目录包后，`test:package:win` 的 6 项测试全部通过，包括真实数据库保存/检索/来源/重启、沙盒 IPC、safeStorage 与 SendInput 拖动。由该已验证目录生成 NSIS `release/Zhiyu-0.1.0-win-x64.exe`，解包核对主程序和 app.asar 的 SHA-256 均与测试对象一致。最终目录程序已通过正常应用配置启动并显示“知屿 · 知识工作区”窗口；包路径、哈希和使用方式见 [Windows 交付说明](windows-delivery.md)。
+重新生成 Windows x64 目录包后，`test:package:win` 的 6 项测试全部通过，包括真实数据库保存/检索/来源/重启、沙盒 IPC、safeStorage 与 SendInput 拖动。由该已验证目录生成 NSIS `release/Zhiyu-0.1.0-win-x64.exe`，解包核对主程序和 app.asar 的 SHA-256 均与测试对象一致。最终目录程序已通过正常应用配置启动并显示“知屿 · 知识工作区”窗口；正式 userData 页面验证未出现“数据库暂不可用”或“索引状态暂不可用”；包路径、哈希和使用方式见 [Windows 交付说明](windows-delivery.md)。
 
 凭据回归先实际复现删除/替换 key 未取消后台请求，修复后两项真实数据库用例通过：旧请求被取消，迟到响应不入库，任务释放租约，替换后使用新 key 恢复。A 的 eval 使用 24 份合成资料/30 题，覆盖短词、过滤和无答案；真实 SQL + 合成 HTTP 全量运行通过，33 次请求。未执行付费网络 eval；没有提供两家 provider key。`release:check` 实际退出 2，缺姓名/主页/仓库/支持/版权；程序及安装包均 NotSigned。未执行 NSIS 安装/卸载，不能把本次实验包称为正式发布验收。下列记录保留各历史阶段的当时状态。
 
