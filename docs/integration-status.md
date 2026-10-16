@@ -2,6 +2,8 @@
 
 ## 最新协调（2026-10-16）
 
+A 的 `c8b852c` 已完成整合验证：check、121 项离线测试、build、12 项真实数据库测试通过。新增 LangChain embedding adapter 和持久化索引 worker，真实数据库覆盖缓存复用、旧 revision/删除保护、部分成功后恢复、过期租约与取消释放。provider HTTP 使用合成 mock；完整服务工厂、generation 切换和聊天生成仍在 A 分支推进。
+
 C3 `df86893` 已在 main 完成整合验证：check、117 项离线测试、build、27 项 Edge 生产浏览器测试全部通过。助手复用 Border Beam，先订阅事件再发送请求，校验 operationId/seq/唯一终态与来源白名单，支持停止、重试和视图切换清理。浏览器使用契约 fixture；真实生成仍等待 A 的服务工厂和聊天 provider，当前不作为付费 API 或桌面 RAG 已接通的证据。
 
 C2 `e3fc75c` 已合入 `8e574bb`：main check、114 项离线测试、build、23 项 Edge 浏览器测试通过。正式工作区使用契约 client，覆盖文档操作、导入去重、冲突保留草稿、来源定位和查询竞态；助手/设置等待 C3/C4。

@@ -14,10 +14,12 @@ import { withOwnedTestSchema } from "./test-schema";
 
 export async function testMigrations() {
   return Promise.all(
-    ["001_knowledge.sql", "002_search_indexes.sql"].map(async (file, index) => ({
-      version: index + 1,
-      sql: await readFile(resolve("db/migrations", file), "utf8"),
-    })),
+    ["001_knowledge.sql", "002_search_indexes.sql", "003_embedding_cache.sql"].map(
+      async (file, index) => ({
+        version: index + 1,
+        sql: await readFile(resolve("db/migrations", file), "utf8"),
+      }),
+    ),
   );
 }
 export async function withTestDatabase<T>(

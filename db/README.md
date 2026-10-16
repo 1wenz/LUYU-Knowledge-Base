@@ -1,6 +1,6 @@
 # PostgreSQL 数据层准备
 
-当前提供版本 SQL、迁移运行器、pg 连接池、事务 CRUD、revision 分块/FTS/job 写入和两路 SQL 召回；公共契约已接入 M0，共享依赖采用 CTO 的 `b7a9b77`。完整 worker 和服务工厂继续在 A 分支实现。
+当前提供版本 SQL、迁移运行器、pg 连接池、事务 CRUD、revision 分块/FTS/job 写入、可恢复 worker 和两路 SQL 召回；公共契约已接入 M0，共享依赖采用 CTO 的 `b7a9b77`。完整服务工厂继续在 A 分支实现。
 
 ## 初始化与迁移
 
@@ -15,6 +15,8 @@ psql --host 127.0.0.1 --dbname zhiyu --username postgres --file db/setup-extensi
 迁移记录由运行器创建，采用 LF 规范化后的 SHA-256。版本须从 1 连续递增，已应用文件不得原地修改。未知/缺失版本、checksum 变化、扩展缺失或版本过低返回 `SCHEMA_MISMATCH`。迁移有事务级 advisory lock、5 秒语句/锁等待上限、参数化账本写入和连接释放；网络与数据库异常不会原样返回给 UI。
 
 SQL 必须作为受信任的应用资源加载。B 的打包管线需要保留这两份迁移资源，或使用 esbuild 文本 loader 编译进主进程；当前没有假设 `.sql` 已被自动打包。A 在 M0 后负责服务内的资源接入，不接受 Renderer 传入 SQL 或资源目录。
+
+worker 阶段新增 `003_embedding_cache.sql`；打包必须按版本包含全部三份 SQL。既有迁移 checksum 不变。
 
 ## 表与索引
 
