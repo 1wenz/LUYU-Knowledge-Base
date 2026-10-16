@@ -45,11 +45,13 @@ embedding/worker 阶段顺序通过 `npm run check` → `npm test`（116/116）�
 
 generation 阶段新增 `indexing/manager.ts`：旧 active 持续查询，短事务补齐 building 当前 revision，独占 catalog advisory lock 内核对所有文档/任务/向量后原子切换；失败或取消保留旧 active。后台与前台重建共享 worker，每实例最多两个在途任务。`recover` 补齐重启遗留 building，并在就绪后完成切换。新增三项真实数据库测试验证 3072→1536、重建中编辑、取消/认证失败和重启恢复，全部通过。本工作区随后顺序 check、128 项离线测试、build 与 12 项真实数据库测试通过；后两组的新增助手/工厂文件在各自后续阶段提交，网络均为合成替身。
 
+助手阶段提供模型目录与免费鉴权探测、LangChain ChatOpenAI 流、完整 chunk 上下文、跨 delta 引用编号白名单、token/每文档预算及来源 revision 复核。聊天模型未选择则拒绝生成，无证据直接返回中文“资料不足”。温度仅在目录明确支持时传递；未知能力为 null。显式隔离 LangChain 回调，测试开启环境 tracing/verbose 时无笔记日志与追踪请求。新增 10 项离线行为/真实 SDK mock HTTP 测试通过，已包含在上述 128 项全量结果中。模型目录和未知 tokenizer 的窗口估算不代表模型路由已验证；聊天 token 采用 cl100k_base 估算，不声称适配任意模型的精确 tokenizer。
+
 ## 尚需完成与给 B 的依赖请求
 
 已合入 CTO 发布的 `b7a9b77` 共享依赖/测试基线，版本见 [dependency-baseline.md](dependency-baseline.md)。本 worktree 独立 `npm ci` 成功；A 没有另行修改 package/lockfile。ESM 依赖由 esbuild 打入 CJS 主进程，sandbox preload 不加载它们。
 
-完整 `createKnowledgeService(deps)`、LangChain LLM adapter、知识助手与 live eval 尚未交付。generation 重建模块已提供；平台接入仍需后续工厂阶段。B 还需提供迁移 SQL 的打包资源或文本 loader；资源列表现在包括 `003_embedding_cache.sql`。
+完整 `createKnowledgeService(deps)` 与 live eval 尚未交付；LangChain LLM adapter、知识助手和 generation 重建模块已提供。平台接入仍需后续工厂阶段。B 还需提供迁移 SQL 的打包资源或文本 loader；资源列表现在包括 `003_embedding_cache.sql`。
 
 真实数据库验收需要明确的专用 `TEST_DATABASE_URL`、PostgreSQL >=17、public schema 的 pgvector >=0.8 和 pg_trgm；包括 CRUD/并发/导入/中文 FTS/短词/3072 索引 EXPLAIN/恢复任务/索引切换。应用服务不读取 process.env 或磁盘设置/秘密。
 

@@ -1,4 +1,9 @@
-import { uuidSchema, type SearchFilters, type ServiceContext } from "../../../../src/lib/contracts";
+import {
+  uuidSchema,
+  type SearchFilters,
+  type ServiceContext,
+  type SearchHit,
+} from "../../../../src/lib/contracts";
 import { planKeywordQuery } from "../../../../src/lib/domain/segmentation";
 import { validateEmbeddingBatch } from "../../../../src/lib/domain/vectors";
 import { DomainError } from "../../../../src/lib/domain/validation";
@@ -26,6 +31,41 @@ const candidates = (rows: Row[]): RetrievalCandidate[] =>
 function checkLimit(value: number, max: number): void {
   if (!Number.isInteger(value) || value < 1 || value > max)
     throw new DomainError("INVALID_INPUT", "召回数量超出范围", "retrieval");
+}
+
+export async function loadPostgresSources(
+  pool: SqlPool,
+  hits: SearchHit[],
+  filters: SearchFilters | undefined,
+  context: ServiceContext,
+): Promise<RetrievalCandidate[]> {
+  if (!hits.length) return [];
+  return inTransaction(
+    pool,
+    context,
+    async (connection) => {
+      const rows = await connection.query<Row>(
+        `SELECT ${sourceColumns} FROM document_chunks c JOIN documents d ON d.id = c.document_id
+      WHERE c.id = ANY($1::uuid[]) AND ${current}`,
+        [
+          hits.map((hit) => hit.chunkId),
+          filters?.collectionId ?? null,
+          filters?.tags ?? [],
+          filters?.favoriteOnly ?? false,
+        ],
+      );
+      const mapped = new Map(candidates(rows.rows).map((row) => [row.chunkId, row]));
+      return hits.flatMap((hit) => {
+        const source = mapped.get(hit.chunkId);
+        return source &&
+          source.documentId === hit.documentId &&
+          source.documentRevision === hit.documentRevision
+          ? [source]
+          : [];
+      });
+    },
+    true,
+  );
 }
 
 export function createPostgresRetrieval(

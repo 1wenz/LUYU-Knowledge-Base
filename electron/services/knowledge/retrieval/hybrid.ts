@@ -53,7 +53,7 @@ export interface RetrievalPorts {
     context: ServiceContext,
   ): Promise<unknown>;
   currentChunkIds(
-    candidates: RetrievalCandidate[],
+    candidates: Pick<RetrievalCandidate, "chunkId" | "documentId" | "documentRevision">[],
     filters: SearchFilters | undefined,
     context: ServiceContext,
   ): Promise<string[]>;
