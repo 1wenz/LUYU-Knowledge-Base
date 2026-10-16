@@ -1,6 +1,6 @@
 # PostgreSQL 数据层准备
 
-当前提供版本 SQL、迁移运行器、内部端口的 documents/collections CRUD 与离线事务行为测试；公共契约已接入 M0。尚未连接真实 PostgreSQL 执行；pg 连接池、worker 和完整服务工厂等待 B 锁定后续运行时依赖。
+当前提供版本 SQL、迁移运行器、pg 连接池、事务 CRUD、revision 分块/FTS/job 写入和两路 SQL 召回；公共契约已接入 M0，共享依赖采用 CTO 的 `b7a9b77`。完整 worker 和服务工厂继续在 A 分支实现。
 
 ## 初始化与迁移
 
@@ -28,15 +28,15 @@ SQL 必须作为受信任的应用资源加载。B 的打包管线需要保留�
 
 此映射供 CTO/B/C 协调旧数据导入；若 M0 已冻结不同 UUID，需在迁移首次发布前同步，不得在已有用户数据库中改写迁移。
 
-`002_search_indexes.sql` 建立中文 FTS/字面 trigram 索引，以及 `embedding::halfvec(3072)` HNSW 和 `embedding::vector(1536)` partial HNSW 索引。存储始终保留原始 float32。1536 路由能力与两个真实索引的执行计划尚未验证，不宣称可用。
+`002_search_indexes.sql` 建立中文 FTS/字面 trigram 索引，以及 `embedding::halfvec(3072)` HNSW 和 `embedding::vector(1536)` partial HNSW 索引。存储始终保留原始 float32。生产 SQL 的 3072 halfvec ANN → float32 重排已经在真实 PostgreSQL 执行并验证可使用 HNSW。1536 provider 路由能力未验证，不宣称可用。
 
 ## 测试隔离与待补验
 
 `tests/integration/test-schema.ts:withOwnedTestSchema` 每次生成 `zhiyu_test_<32位随机十六进制>`，只清理自己成功创建的 schema，创建失败时不执行 DROP；不接受调用方指定已有 schema。数据库扩展应由管理员预装，测试不能删除或重装数据库级扩展。
 
-已执行的迁移测试使用 SQL 端口替身，验证控制流、事务、版本、错误脱敏和连接释放，不能证明 SQL 语法、pgvector 行为或 PostgreSQL 的真实回滚已通过。
+离线迁移测试使用 SQL 端口替身，只验证控制流。新增 `tests/integration/persistence-search.test.ts` 在 CTO 明确提供的隔离 PostgreSQL 17.6 / pgvector 0.8.6 实例中创建随机 schema，实际执行正式迁移、CRUD/回滚/revision/导入幂等、中文 FTS/单字/字面通配符、过滤/软删除/旧 revision，以及 3072 维召回和 `EXPLAIN (ANALYZE, BUFFERS)`。小样本 plan 验证显式关闭顺序扫描与排序，只证明生产查询可利用对应索引，不代表真实规模性能或召回率。
 
-待 pg 依赖与专用连接到达后，使用 `TEST_DATABASE_URL` 对随机 schema 实测迁移/CRUD/分页/导入事务/冲突/中文 FTS/短词/过滤/3072 索引 `EXPLAIN (ANALYZE, BUFFERS)`/任务恢复/generation 切换。连接变量只由测试入口读取，不得传入应用服务的全局环境。
+使用 `npm run test:db` 和专用 `TEST_DATABASE_URL` 运行集成测试；缺配置时非零退出，不计为通过。连接变量只由测试入口读取，业务服务不读环境变量。任务恢复/generation 切换及完整应用链路仍需后续阶段验收。
 
 ## 备份与回滚
 
