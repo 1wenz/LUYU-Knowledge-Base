@@ -3,12 +3,11 @@
     "target": "ES2022",
     "module": "commonjs",
     "moduleResolution": "node",
-    "outDir": "../dist-electron",
-    "rootDir": ".",
+    "noEmit": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["*.ts"]
+  "include": ["**/*.ts", "../src/lib/contracts/**/*.ts"]
 }

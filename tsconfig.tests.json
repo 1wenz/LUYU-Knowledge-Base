@@ -12,7 +12,7 @@
     "types": ["node"]
   },
   "include": [
-    "tests/domain/**/*.ts",
+    "tests/**/*.test.ts",
     "src/features/knowledge/model.ts",
     "src/features/knowledge/repository.ts",
     "src/features/knowledge/seed.ts"

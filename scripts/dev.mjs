@@ -64,15 +64,11 @@ try {
     if (error.message?.includes("已被占用")) throw error;
   }
 
-  const compiler = spawn(
-    process.execPath,
-    [require.resolve("typescript/bin/tsc"), "-p", "electron/tsconfig.json"],
-    {
-      cwd: root,
-      stdio: "inherit",
-      windowsHide: true,
-    },
-  );
+  const compiler = spawn(process.execPath, ["scripts/build-electron.mjs"], {
+    cwd: root,
+    stdio: "inherit",
+    windowsHide: true,
+  });
   const compilerExit = await new Promise((done, reject) => {
     compiler.on("error", reject);
     compiler.on("exit", done);
@@ -86,13 +82,7 @@ try {
     "--port",
     "3000",
   ]);
-  launch(process.execPath, [
-    require.resolve("typescript/bin/tsc"),
-    "-p",
-    "electron/tsconfig.json",
-    "--watch",
-    "--preserveWatchOutput",
-  ]);
+  launch(process.execPath, ["scripts/build-electron.mjs", "--watch"]);
   const deadline = Date.now() + 90_000;
   while (true) {
     try {

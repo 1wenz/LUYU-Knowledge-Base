@@ -1,3 +1,5 @@
+import type { KnowledgeClient } from "./contracts";
+
 export type DesktopInfo = {
   name: string;
   version: string;
@@ -6,7 +8,7 @@ export type DesktopInfo = {
 
 declare global {
   interface Window {
-    desktop?: {
+    desktop?: KnowledgeClient & {
       getInfo: () => Promise<DesktopInfo>;
     };
   }

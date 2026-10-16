@@ -316,3 +316,17 @@ A 导出 `electron/services/knowledge/index.ts` 的 `createKnowledgeService(deps
 B 实现的公共 schema 必须与本文一致；未确定的附属字段在 M0 一次补齐并告知 A/C。之后任何不兼容变化先在文档写清差异和迁移，再由 B 更新共享类型及 fixture，同时验证两个消费者。
 
 不得为避免联调而使用 `any`、unknown[]、万能 JSON 字段或静默忽略未实现方法。可用实现明确的 demo adapter 和 provider mock 支持并行，运行模式必须可识别，不能把 demo 搜索标记为真实 Rerank。
+
+## 9. M0 精确类型入口（Agent B）
+
+正式入口为 `src/lib/contracts/index.ts`：导出所有 DTO、`KnowledgeClient`、`requestSchemas`、`responseSchemas`、`operationEventSchema`、`DEFAULT_SETTINGS`。schema 拒绝未知字段，patch 按完整组替换。`src/lib/desktop.ts` 声明 `window.desktop`，保留旧 `getInfo()` 只读兼容方法。
+
+补齐的附属字段如下，A/C 共用，不再单独推断：
+
+- `AppInfo.versions = { electron, chrome, node }`；`developer = { name, homepage, repository, support, license, copyright }`，未知资料为 null；`mode` 为 desktop/demo。
+- `IndexStatus = { activeGenerationId, buildingGenerationId, documentCount, chunkCount, pendingCount, failedCount, requiresReindex, lastErrorCode }`；generation ID 和 lastErrorCode 可为 null。
+- `ConnectionReport.versions?: { postgresql?: string, pgvector?: string }`，不接受 provider 原始对象。
+- `KnowledgeService` / `KnowledgeServiceDependencies` / `KnowledgeServiceFactory` 见 `src/lib/contracts/service.ts`。普通方法返回 DTO 或抛出带公开 code 的错误，由 B 转 `ApiResult`；取消上下文是 `{ ownerId, signal }`。
+- `index.rebuild(context)` / `assistant.start(input, context)` 返回 `Promise<void>`；context 增加 `{ operationId, emit(payload) }`。B 生成 started/终态和 seq，A 只发送 retrieving/context/delta/progress。B 的 `deps.emit(ownerId, event)` 兼容事件 sink 同样经过 owner、schema 和 seq 校验，不能直接发送给任意窗口。
+
+测试入口 `npm test` 动态发现 domain/search/contracts/platform 下的 `.test.ts`；数据库与 live eval 分组独立，缺配置或没有用例时退出非零并明确标为未执行。Electron 主进程与 preload 由 esbuild 分别 bundle，`tsc --noEmit` 覆盖全部嵌套 Electron 源文件和共享契约。
