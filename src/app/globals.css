@@ -395,6 +395,32 @@
   min-height: 34rem;
 }
 
+.workspace-body {
+  container-type: inline-size;
+  container-name: workspace;
+}
+
+.notes-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.notes-list[data-detail-open="true"] {
+  display: none;
+}
+
+@container workspace (min-width: 60rem) {
+  .notes-layout {
+    grid-template-columns: 20rem minmax(0, 1fr);
+  }
+  .notes-list[data-detail-open="true"] {
+    display: block;
+  }
+  .note-detail-return {
+    display: none;
+  }
+}
+
 @keyframes border-beam {
   to {
     --beam-angle: 360deg;

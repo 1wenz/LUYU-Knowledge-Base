@@ -38,9 +38,12 @@ export function FluidDialog({
               document.activeElement instanceof HTMLElement ? document.activeElement : null;
           }}
           onCloseAutoFocus={(event) => {
-            if (returnFocus.current?.isConnected) {
+            if (returnFocus.current) {
               event.preventDefault();
-              returnFocus.current.focus();
+              const target = returnFocus.current;
+              requestAnimationFrame(() => {
+                if (target.isConnected) target.focus();
+              });
             }
           }}
         >

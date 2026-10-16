@@ -119,3 +119,23 @@ C3 验证：`npm run check`、`npm test`（12 项）和 `npm run build` 通过�
 向量维度或分块设置保存后只展示 `requiresReindex`。用户进入索引组点击重建，二次确认后由 `useOperation` 订阅 `progress/completed/cancelled/failed`，显示文档数、片段数、进度与失败数；取消时保留当前 active generation。关于页读取 `system.getInfo` 的版本、运行模式、架构和公共开发者资料，未知显示“未配置”；许可证按钮读取随包文本，外链仍走 `system.openExternal` 白名单。
 
 C4 验证：`npm run check`、`npm test`（12 项）、`npm run build` 均通过；Edge 生产导出设置组 4 项通过。覆盖范围与跨字段错误、expectedRevision 冲突、密钥清除与不落 localStorage、显式重建确认/进度/取消、模型列表/连接探测按需触发、主题与 reduced motion 以及关于/许可证信息。未声称真实 PostgreSQL、safeStorage、provider 或 Windows 窗口集成已通过，需 B/A 集成环境补验。
+
+### C5 · 最终浏览器与视觉验收（2026-10-16）
+
+最终 `npm run check`、`npm test`（12 项）和 `npm run build` 按顺序通过；`PLAYWRIGHT_CHANNEL=msedge npm run test:browser` 全量 39 项通过。新增验收包含 1380×900 / 960×640 / 390×844 各主视图和所有设置组、200% CSS 缩放、未保存草稿的二次确认/焦点恢复、旧版导入与源数据保留、加密不可用后显式切换会话、索引未完成提示及流式长回答主动向上阅读。
+
+验收曾发现 200% 缩放下媒体查询仍强制双栏，改为按工作区容器实际宽度切换；不通过隐藏水平溢出来掩盖布局。草稿嵌套确认关闭后焦点丢失，定位为 React 输入 autoFocus 先于 Radix 记录入口，改由 Radix 统一聚焦并在关闭后的下一帧恢复。保存后查询索引状态，主视图顶部显示 pending/failed/requiresReindex。助手错误状态停止 Border Beam，修改问题恢复输入。上述问题均由对应行为用例失败后修复，并全量复验。
+
+复用已校验的 axe-core 4.14.0，在空库、编辑器、笔记、搜索、来源弹窗、许可证、浅/深色七组设置、深色助手和 390px 助手共 23 个状态运行 WCAG 2 A/AA + 2.1 AA 检查：全部 0 项违规，每状态 20–29 项检查通过。报告为 `.cache/ui-v1/accessibility.json`，截图同目录：`notes-light.png`、`notes-dark.png`、`search-light.png`、`source-light.png`、`editor-light.png`、`settings-light-0.png` 至 `settings-light-6.png`、`settings-dark-0.png` 至 `settings-dark-6.png`、`assistant-dark.png`、`assistant-dark-390.png`、`assistant-390-viewport.png` 等。审计脚本 `.cache/ui-v1/audit.mjs` 不进入产品代码/依赖。审计记录外部请求 0；reduced motion 下 Border Beam 的 animation 为 none、pointer-events 为 none。截图实际检查了文字、宽度和控件位置；CSS 缩放与浏览器截图不能代替 Windows 125% 系统缩放与真实标题栏拖动。
+
+`npm run test:desktop` 已实际执行并失败（1 项）：Electron 可以启动，当前 M0 `electron/preload.ts` 只暴露原型 `getInfo()`，新入口因此显示“桌面接口尚未就绪”，原测试等待“全部笔记”超时。保留这一真实结果，不把测试改成等待演示或旧原型来隐藏缺失。完整 `KnowledgeClient` bridge、A 的服务以及同步后的桌面用例由 B/CTO 集成后重跑。数据库、provider、safeStorage、Windows 打包与实际拖动不在本分支声称通过。
+
+### 给 CTO 的合并与联调入口
+
+工作区 `D:\Warp\zhiyu-c-ui`，分支 `feat/fluid-workspace`。阶段提交：设计系统 `91eb6d7`；笔记/来源检索 `e3fc75c`；助手 `df86893`；设置 `3a27137`。基于已发布的 M0 `34157d2` 与资产基线 `98c3d9f`，没有修改公共契约、Electron、package/lockfile、根脚本或 A 的服务；无需新增依赖。C5 后续提交只涉及 UI 与浏览器验收。保持分支历史，由 CTO 合并，不自动推送远程。
+
+调用清单全部从 `src/lib/contracts` 导入：`system.getInfo/openExternal/pickTextFiles`；`collections.list/save`；`documents.list/get/save/setFavorite/remove/restore/import`；`search.query/cancel`；`settings.get/update`；`secrets.set/delete`；`connections.test`；`models.list`；`index.status/rebuild`；`assistant.start`；`operations.subscribe/cancel`。没有新设 IPC channel 或未知 JSON DTO。工作区入口在 `src/app/page.tsx` → `features/workspace/entry.tsx`，客户端选择在 `lib/client/renderer.ts`，流式任务在 `lib/client/use-operation.ts`。
+
+预览：使用工程 Node 22 / npm 10 后 `npm run build`，再 `npm run preview`，进入 `http://127.0.0.1:3100/?demo=1`；未显式 demo 的浏览器入口是选择页。桌面不读取 demo 存储。原型兼容页 `/?legacy=1` 只在无 desktop 且非 Electron 环境可用。旧版迁移通过导入弹窗读取 `zhiyu:notes:v1`；公开契约迁移标题/正文/分类/标签，创建时间与收藏状态以新库 API 为准，原始字段仍保留于旧存储，任何阶段不自动删除。正式桌面以 PostgreSQL 为事实存储，迁移与回滚不得靠清库；回退 UI 提交前先保留数据库和浏览器源数据。
+
+推荐联调用例：空数据库不自动演示 → 保存资料并验证 revision → 后台索引状态 → 中文混合检索的实际 mode/warnings → 打开来源核对行与版本 → 配置模型/key 后流式回答/取消 → 修改维度后显式重建/取消 → 重启后设置和密钥状态 → Windows 原生标题栏实际拖动与离线字体。未配置 provider 时，笔记操作与关键词检索仍应可用。

@@ -169,10 +169,12 @@ export function useOperation(client: KnowledgeClient) {
         setState((previous) => ({ ...previous, error: readableError(error) }));
     }
   }, [client]);
+  const clearError = useCallback(() => setState((previous) => ({ ...previous, error: "" })), []);
   return {
     state,
     start,
     cancel,
+    clearError,
     running: ["starting", "retrieving", "streaming"].includes(state.status),
   };
 }

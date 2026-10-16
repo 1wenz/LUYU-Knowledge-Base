@@ -28,6 +28,9 @@ test("契约客户端支持保存、收藏、删除与恢复，刷新保留数�
   await page.getByLabel("标签", { exact: true }).fill("研究，离线");
   await page.getByRole("button", { name: "保存笔记", exact: true }).click();
   await expect(page.getByRole("heading", { name: "本地优先研究", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "打开笔记：本地优先研究", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "收藏笔记", exact: true }).click();
   await expect(page.getByRole("button", { name: "取消收藏", exact: true })).toBeVisible();
   await page.reload();

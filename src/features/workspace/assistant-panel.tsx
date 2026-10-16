@@ -22,7 +22,7 @@ export function AssistantPanel({
   onSettings: () => void;
   mode: "demo" | "desktop";
 }) {
-  const { state, start, cancel, running } = useOperation(client);
+  const { state, start, cancel, running, clearError } = useOperation(client);
   const [input, setInput] = useState("");
   const [lastQuestion, setLastQuestion] = useState("");
   const [error, setError] = useState("");
@@ -190,6 +190,7 @@ export function AssistantPanel({
         onValueChange={(value) => {
           setInput(value);
           setError("");
+          clearError();
         }}
         onSend={(value) => {
           void ask(value);
@@ -199,6 +200,7 @@ export function AssistantPanel({
         }}
         status={running ? "streaming" : "idle"}
         disabled={preparing && !running}
+        invalid={!!currentError && !running}
       />
     </section>
   );
