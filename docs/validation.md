@@ -104,3 +104,9 @@ CTO 合并时的具体接线顺序：
 | B4       | 当前交接提交                    | 请求预算校验、4 项离线门禁测试、最终证据与合并说明                    |
 
 本地提交由 CTO 选择合并，不自动推送、发布或修改其他 worktree；Prime Agent 工具和用户原目录未清理。
+
+## 集成补充：数据库迁移资源
+
+主进程构建增加 SQL text loader，`electron/platform/migration-resources.ts` 显式导出三份已发布迁移。后续由组合根把 `knowledgeMigrations` 传给 A 的服务工厂；数据库服务不依赖源码目录或 renderer 提供 SQL。生产服务尚未注入，此阶段不宣称桌面已能连接真实知识库。
+
+已复现缺少 loader 时三份 SQL 均被构建器拒绝。修复后顺序 check、121 项离线测试和 build 通过；真实平台桌面组 3 项通过。bundle 回归在系统临时目录执行实际生成的 CJS，并逐一核对其迁移版本和规范化 SHA-256 与仓库 SQL 一致；同时保留 pg/LangChain/tokenizer 和严格外部依赖校验。最终安装包还须通过真实桌面数据库验收。
