@@ -44,7 +44,13 @@ export async function installClient(
       ignoreSearchCancel: !!fixtureOptions.slowQuery,
     });
     if (fixtureOptions.assistantReady) window.desktop.secrets.set({requestId: crypto.randomUUID(), payload: {kind: 'openrouter-api-key', value: 'synthetic-fixture-key', persistence: 'session'}});
-    const stats = window.fixtureStats = {starts: 0, cancellations: 0, listeners: 0};
+    const stats = window.fixtureStats = {starts: 0, cancellations: 0, listeners: 0, rebuilds: 0, modelLists: 0, probes: 0};
+    const originalRebuild = window.desktop.index.rebuild;
+    window.desktop.index.rebuild = request => { stats.rebuilds++; return originalRebuild(request); };
+    const originalModelList = window.desktop.models.list;
+    window.desktop.models.list = request => { stats.modelLists++; return originalModelList(request); };
+    const originalProbe = window.desktop.connections.test;
+    window.desktop.connections.test = request => { stats.probes++; return originalProbe(request); };
     const originalStart = window.desktop.assistant.start;
     window.desktop.assistant.start = request => {
       stats.starts++;

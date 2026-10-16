@@ -37,6 +37,7 @@ import { Markdown } from "./markdown";
 import { SearchPanel } from "./search-panel";
 import { SourceDialog } from "./source-dialog";
 import { AssistantPanel } from "./assistant-panel";
+import { SettingsPanel } from "./settings-panel";
 
 type MainView = "notes" | "search" | "assistant" | "settings";
 const navItems: SidebarItem[] = [
@@ -598,10 +599,7 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
             />
           )}
           {view === "settings" && (
-            <section className="p-8">
-              <h1 className="text-2xl">设置与关于</h1>
-              <p className="mt-4">设置界面正在接入共享设置契约。</p>
-            </section>
+            <SettingsPanel client={client} mode={mode} onUpdated={setSettings} />
           )}
         </main>
       </div>

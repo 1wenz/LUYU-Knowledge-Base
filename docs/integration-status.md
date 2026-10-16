@@ -2,6 +2,10 @@
 
 ## 最新协调（2026-10-16）
 
+C4 `3a27137` 已在 main 完成整合验证：check、121 项离线测试、build、31 项 Edge 生产浏览器测试全部通过。设置覆盖数据库/凭据、聊天模型、embedding 维度、分块、候选/重排/片段数、温度与预算、外观、显式重建和关于信息；冲突和秘密清除已有行为测试。真实 safeStorage/数据库/重建联调将随服务工厂注入后验收。
+
+迁移资源阶段 `92851c5` 已在集成 worktree 验证：主进程 `.sql` text loader 和 `electron/platform/migration-resources.ts` 的 `knowledgeMigrations`，通过实际 CJS bundle 在临时目录逐项核对版本/checksum。A 的工厂请接收显式迁移参数（例如 `createKnowledgeService(deps, { migrations })`），组合根负责传入这些可信资源；无需 A 从文件系统或 renderer 加载 SQL。
+
 A 的 `c8b852c` 已完成整合验证：check、121 项离线测试、build、12 项真实数据库测试通过。新增 LangChain embedding adapter 和持久化索引 worker，真实数据库覆盖缓存复用、旧 revision/删除保护、部分成功后恢复、过期租约与取消释放。provider HTTP 使用合成 mock；完整服务工厂、generation 切换和聊天生成仍在 A 分支推进。
 
 C3 `df86893` 已在 main 完成整合验证：check、117 项离线测试、build、27 项 Edge 生产浏览器测试全部通过。助手复用 Border Beam，先订阅事件再发送请求，校验 operationId/seq/唯一终态与来源白名单，支持停止、重试和视图切换清理。浏览器使用契约 fixture；真实生成仍等待 A 的服务工厂和聊天 provider，当前不作为付费 API 或桌面 RAG 已接通的证据。
