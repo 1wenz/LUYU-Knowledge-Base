@@ -378,9 +378,9 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
                 ? "索引状态暂不可用，请在设置中检查连接。"
                 : indexStatus?.requiresReindex
                   ? "索引配置已更改，需要重建。"
-                  : `向量待处理 ${indexStatus?.pendingCount ?? 0} 个片段`}
+                  : `向量待处理 ${indexStatus?.pendingCount ?? 0} 项任务`}
             </span>
-            {!!indexStatus?.failedCount && <span>索引失败 {indexStatus.failedCount} 个片段</span>}
+            {!!indexStatus?.failedCount && <span>索引失败 {indexStatus.failedCount} 项任务</span>}
             <FluidButton variant="ghost" onClick={() => choose("settings")}>
               查看索引设置
             </FluidButton>

@@ -59,7 +59,7 @@ test("200% CSS 缩放仍可编辑和访问设置，快捷键及抽屉恢复焦�
     .fill("超长文本 " + "longword".repeat(100));
   await page.getByRole("button", { name: "保存笔记", exact: true }).click();
   await expect(page.getByRole("heading", { name: "缩放验收", exact: true })).toBeVisible();
-  await expect(page.getByText("向量待处理 1 个片段", { exact: true })).toBeVisible();
+  await expect(page.getByText("向量待处理 1 项任务", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
   );
