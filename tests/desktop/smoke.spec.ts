@@ -1,16 +1,9 @@
-import { _electron as electron, expect, test } from "@playwright/test";
-import { resolve } from "node:path";
+import { expect, test } from "@playwright/test";
+import { desktopFixture } from "./fixtures";
 
 test("静态导出在沙盒桌面窗口中加载，preload IPC 可用", async () => {
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE;
-  delete env.ELECTRON_RENDERER_URL;
-  const application = await electron.launch({
-    args: [resolve(".")],
-    env,
-  });
+  const { application, page } = await desktopFixture();
   try {
-    const page = await application.firstWindow();
     await expect(page.getByRole("heading", { name: "全部笔记", exact: true })).toBeVisible();
     await expect(page.getByText("本地存储已就绪")).toBeVisible();
     expect(await page.evaluate(() => location.protocol)).toBe("knowledge:");
