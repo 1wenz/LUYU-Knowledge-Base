@@ -1,6 +1,6 @@
 # PostgreSQL 数据层准备
 
-当前提供版本 SQL、迁移运行器与离线事务行为测试；尚未连接真实 PostgreSQL 执行。完整 CRUD、worker 和服务工厂依赖 M0 公共契约与 `pg` 依赖，不属于当前已验收能力。
+当前提供版本 SQL、迁移运行器、内部端口的 documents/collections CRUD 与离线事务行为测试；公共契约已接入 M0。尚未连接真实 PostgreSQL 执行；pg 连接池、worker 和完整服务工厂等待 B 锁定后续运行时依赖。
 
 ## 初始化与迁移
 
@@ -36,7 +36,7 @@ SQL 必须作为受信任的应用资源加载。B 的打包管线需要保留�
 
 已执行的迁移测试使用 SQL 端口替身，验证控制流、事务、版本、错误脱敏和连接释放，不能证明 SQL 语法、pgvector 行为或 PostgreSQL 的真实回滚已通过。
 
-待 M0 与专用连接到达后，使用 `TEST_DATABASE_URL` 对随机 schema 实测迁移/CRUD/分页/导入事务/冲突/中文 FTS/短词/过滤/3072 索引 `EXPLAIN (ANALYZE, BUFFERS)`/任务恢复/generation 切换。连接变量只由测试入口读取，不得传入应用服务的全局环境。
+待 pg 依赖与专用连接到达后，使用 `TEST_DATABASE_URL` 对随机 schema 实测迁移/CRUD/分页/导入事务/冲突/中文 FTS/短词/过滤/3072 索引 `EXPLAIN (ANALYZE, BUFFERS)`/任务恢复/generation 切换。连接变量只由测试入口读取，不得传入应用服务的全局环境。
 
 ## 备份与回滚
 

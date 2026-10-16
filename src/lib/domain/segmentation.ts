@@ -1,4 +1,5 @@
 import { DomainError } from "./validation";
+import { searchRequestSchema } from "../contracts";
 
 export const NORMALIZER_VERSION = "intl-segmenter-zh-word-nfkc-v1";
 const segmenter = new Intl.Segmenter("zh", { granularity: "word" });
@@ -68,11 +69,12 @@ export type KeywordQueryPlan = {
 export function planKeywordQuery(input: string): KeywordQueryPlan {
   if (typeof input !== "string")
     throw new DomainError("INVALID_INPUT", "搜索词必须是文本", "query");
-  const trimmed = input.trim();
-  const length = Array.from(trimmed).length;
-  if (length < 1 || length > 2_000) {
+  const parsed = searchRequestSchema.shape.query.safeParse(input);
+  if (!parsed.success) {
     throw new DomainError("INVALID_INPUT", "搜索词长度必须为 1–2000 个 Unicode 字符", "query");
   }
+  const trimmed = parsed.data;
+  const length = Array.from(trimmed).length;
   const normalized = normalize(trimmed);
   return {
     normalized,

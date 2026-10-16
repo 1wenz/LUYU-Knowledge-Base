@@ -1,93 +1,126 @@
 import { DomainError } from "./validation";
 
-export type EmbeddingResponse = { data: Array<{ index: number; embedding: number[] }> };
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function malformed(message: string): DomainError {
+  return new DomainError("SCHEMA_MISMATCH", message);
+}
 
+/** Accept raw JSON and validate before any provider index is dereferenced. */
 export function validateEmbeddingBatch(
-  response: EmbeddingResponse,
+  response: unknown,
   expectedCount: number,
   dimensions: number,
 ): number[][] {
   if (
-    !Number.isInteger(expectedCount) ||
+    !Number.isSafeInteger(expectedCount) ||
     expectedCount < 1 ||
-    !Number.isInteger(dimensions) ||
+    !Number.isSafeInteger(dimensions) ||
     dimensions < 1
   ) {
     throw new DomainError("INVALID_INPUT", "embedding 批次参数无效");
   }
-  if (!response || !Array.isArray(response.data) || response.data.length !== expectedCount) {
-    throw new DomainError("SCHEMA_MISMATCH", "embedding 响应数量不匹配");
+  if (
+    !isRecord(response) ||
+    !Array.isArray(response.data) ||
+    response.data.length !== expectedCount
+  ) {
+    throw malformed("embedding 响应数量不匹配");
   }
-  const output: Array<number[] | undefined> = Array.from({ length: expectedCount });
+  const mapped = new Map<number, number[]>();
   for (const entry of response.data) {
     if (
-      !Number.isInteger(entry.index) ||
+      !isRecord(entry) ||
+      typeof entry.index !== "number" ||
+      !Number.isSafeInteger(entry.index) ||
       entry.index < 0 ||
       entry.index >= expectedCount ||
-      output[entry.index]
+      mapped.has(entry.index)
     ) {
-      throw new DomainError("SCHEMA_MISMATCH", "embedding 响应 index 无效");
+      throw malformed("embedding 响应 index 无效");
     }
-    if (
-      !Array.isArray(entry.embedding) ||
-      entry.embedding.length !== dimensions ||
-      !entry.embedding.every((value) => Number.isFinite(value))
-    ) {
-      throw new DomainError("SCHEMA_MISMATCH", "embedding 维度或数值无效");
+    if (!Array.isArray(entry.embedding) || entry.embedding.length !== dimensions)
+      throw malformed("embedding 维度无效");
+    const vector: number[] = [];
+    let normSquared = 0;
+    for (const value of entry.embedding) {
+      if (
+        typeof value !== "number" ||
+        !Number.isFinite(value) ||
+        !Number.isFinite(Math.fround(value))
+      ) {
+        throw malformed("embedding 必须包含有限的 float32 数值");
+      }
+      const rounded = Math.fround(value);
+      vector.push(rounded);
+      normSquared += rounded * rounded;
     }
-    const magnitude = Math.sqrt(entry.embedding.reduce((sum, value) => sum + value * value, 0));
-    if (magnitude === 0) throw new DomainError("SCHEMA_MISMATCH", "embedding 不能是零向量");
-    output[entry.index] = entry.embedding;
+    if (normSquared === 0) throw malformed("embedding 不能是零向量");
+    mapped.set(entry.index, vector);
   }
-  if (output.some((entry) => entry === undefined))
-    throw new DomainError("SCHEMA_MISMATCH", "embedding index 不完整");
-  return output as number[][];
+  return Array.from({ length: expectedCount }, (_, index) => {
+    const vector = mapped.get(index);
+    if (!vector) throw malformed("embedding index 不完整");
+    return vector;
+  });
 }
 
 export function cosineSimilarity(left: number[], right: number[]): number {
-  if (left.length !== right.length || left.length === 0)
+  if (left.length !== right.length || !left.length)
     throw new DomainError("INVALID_INPUT", "向量维度不一致");
-  let dot = 0;
-  let leftMagnitude = 0;
-  let rightMagnitude = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    if (!Number.isFinite(left[index]) || !Number.isFinite(right[index]))
+  let leftScale = 0;
+  let rightScale = 0;
+  for (let i = 0; i < left.length; i++) {
+    if (!Number.isFinite(left[i]) || !Number.isFinite(right[i]))
       throw new DomainError("INVALID_INPUT", "向量包含非法数值");
-    dot += left[index] * right[index];
-    leftMagnitude += left[index] * left[index];
-    rightMagnitude += right[index] * right[index];
+    leftScale = Math.max(leftScale, Math.abs(left[i]));
+    rightScale = Math.max(rightScale, Math.abs(right[i]));
   }
-  if (leftMagnitude === 0 || rightMagnitude === 0)
-    throw new DomainError("INVALID_INPUT", "向量不能是零向量");
-  return dot / Math.sqrt(leftMagnitude * rightMagnitude);
+  if (!leftScale || !rightScale) throw new DomainError("INVALID_INPUT", "向量不能是零向量");
+  let dot = 0;
+  let leftNorm = 0;
+  let rightNorm = 0;
+  for (let i = 0; i < left.length; i++) {
+    const a = left[i] / leftScale;
+    const b = right[i] / rightScale;
+    dot += a * b;
+    leftNorm += a * a;
+    rightNorm += b * b;
+  }
+  return Math.max(-1, Math.min(1, dot / Math.sqrt(leftNorm * rightNorm)));
 }
 
-export type RerankResponse = { results: Array<{ index: number; relevance_score: number }> };
-
 export function validateRerankResults(
-  response: RerankResponse,
+  response: unknown,
   candidateCount: number,
   topN: number,
-) {
+): Array<{ index: number; score: number }> {
   if (
-    !response ||
-    !Array.isArray(response.results) ||
-    !Number.isInteger(topN) ||
+    !Number.isSafeInteger(candidateCount) ||
+    candidateCount < 0 ||
+    !Number.isSafeInteger(topN) ||
     topN < 0 ||
-    response.results.length > topN
+    topN > candidateCount
   ) {
-    throw new DomainError("SCHEMA_MISMATCH", "Rerank 响应数量无效");
+    throw new DomainError("INVALID_INPUT", "Rerank 候选数或 top_n 无效");
+  }
+  if (!isRecord(response) || !Array.isArray(response.results) || response.results.length !== topN) {
+    throw malformed("Rerank 响应数量无效");
   }
   const seen = new Set<number>();
-  return response.results.map((entry) => {
+  return response.results.map((entry: unknown) => {
     if (
-      !Number.isInteger(entry.index) ||
+      !isRecord(entry) ||
+      typeof entry.index !== "number" ||
+      !Number.isSafeInteger(entry.index) ||
       entry.index < 0 ||
       entry.index >= candidateCount ||
       seen.has(entry.index) ||
+      typeof entry.relevance_score !== "number" ||
       !Number.isFinite(entry.relevance_score)
     ) {
-      throw new DomainError("SCHEMA_MISMATCH", "Rerank 响应 index 或分数无效");
+      throw malformed("Rerank 响应 index 或分数无效");
     }
     seen.add(entry.index);
     return { index: entry.index, score: entry.relevance_score };

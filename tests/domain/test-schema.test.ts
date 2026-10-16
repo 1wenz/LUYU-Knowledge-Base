@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { withOwnedTestSchema } from "./test-schema";
+import { withOwnedTestSchema } from "../integration/test-schema";
 import type { SqlPool } from "../../electron/services/knowledge/database/ports";
 
 function fixture(failCreate = false) {
@@ -33,7 +33,11 @@ test("测试只创建并清理自己生成的随机 schema", async () => {
   assert.notEqual(schemas[0], schemas[1]);
   assert.deepEqual(
     db.statements,
-    schemas.flatMap((schema) => [`CREATE SCHEMA "${schema}"`, `DROP SCHEMA "${schema}" CASCADE`]),
+    schemas.flatMap((schema) => [
+      `CREATE SCHEMA "${schema}"`,
+      "ROLLBACK",
+      `DROP SCHEMA "${schema}" CASCADE`,
+    ]),
   );
   assert.equal(db.released(), true);
 });
@@ -50,6 +54,7 @@ test("创建失败时不能执行 DROP；测试失败时仍清理已创建的 sc
     }),
     /test failed/,
   );
-  assert.equal(db.statements.length, 2);
-  assert.ok(db.statements[1].startsWith('DROP SCHEMA "zhiyu_test_'));
+  assert.equal(db.statements.length, 3);
+  assert.equal(db.statements[1], "ROLLBACK");
+  assert.ok(db.statements[2].startsWith('DROP SCHEMA "zhiyu_test_'));
 });
