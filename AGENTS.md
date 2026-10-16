@@ -4,6 +4,16 @@
 
 构建本地优先的桌面知识库系统。使用 Electron、Next.js App Router、TypeScript、Tailwind CSS 和 shadcn/ui。界面与用户文档优先使用中文。
 
+## 必读设计与开发依据
+
+- [Designlang.md](Designlang.md)：所有 UI 工作前必读，规定 Fluid Functionalism/shadcn、Geist/霞鹜文楷、字号、Lucide、毛笔标志、动效与窗口交互。
+- [docs/architecture-v1.md](docs/architecture-v1.md)：混合检索知识库的当前架构；PostgreSQL + pgvector 是 v1 事实存储，替代初始化文档中的 SQLite 后续计划。
+- [docs/contracts-v1.md](docs/contracts-v1.md)：公共 DTO、IPC、服务边界、设置默认值和错误语义；跨 agent 接口以此为准。
+- [docs/development-principles.md](docs/development-principles.md)：结合 KISS、DIY 与 obra/superpowers 的开发方法，强调行为测试、系统排错、验证和阶段提交。
+- [docs/agents/README.md](docs/agents/README.md)：三个 agent 的目录所有权、公共基线和集成顺序；并行工作前阅读对应任务书。
+
+首版检索链为中文关键词 + OpenRouter `openai/text-embedding-3-large` 向量召回 → 加权 RRF → Cohere `rerank-v3.5`；底层使用 LangChain TypeScript。AI 与数据库凭据只由 Electron 主进程管理。实验阶段只验证 Windows x64；保留原生标题栏并测试实际拖动。共享配置、契约、依赖与锁文件由平台集成负责人统一修改。
+
 ## 目录边界
 
 - `src/app/`：Next.js 页面、布局和全局样式。
