@@ -79,7 +79,7 @@ export function chunkMarkdown(
     throw new DomainError(
       "INVALID_INPUT",
       "分块上限必须为正整数，重叠必须小于上限的一半",
-      "chunkTokens",
+      "indexing",
     );
   }
   if (typeof source !== "string")
@@ -122,7 +122,7 @@ export function chunkMarkdown(
     }
     let end = characters[fittingIndex];
     if (end <= previousEnd)
-      throw new DomainError("INVALID_INPUT", "单个字符超过剩余分块预算", "chunkTokens");
+      throw new DomainError("INVALID_INPUT", "单个字符超过剩余分块预算", "indexing");
     // Prefer paragraphs, headings and whole fences, while requiring new source text.
     const boundaryIndex = lowerBound(preferred, end + 1) - 1;
     if (

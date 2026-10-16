@@ -1,37 +1,40 @@
 # Agent A · 数据与检索交付
 
-工作分支：`feat/data-retrieval`。工作区：`D:\Warp\zhiyu-a-data`。由 CTO/Agent B 选择阶段提交合并；不自动合并或推送。
+工作分支：`feat/data-retrieval`。工作区：`D:\Warp\zhiyu-a-data`。由 CTO 选择阶段提交合并；不推送远程、不自动合入主分支。已合入公共 M0：`34157d2`，保留已有历史。
 
-## 当前交付
+## 当前完成范围
 
-这是 M0 前可独立验证的领域准备阶段，不代表 PostgreSQL 持久化、完整检索服务或知识助手已接通。原型与共享 contracts/schema 由 B 提交，A 不重建缺失工程，也不复制公共 DTO。
+这是一组可审查的数据层阶段交付，完整知识服务尚未接通。
 
-- 标题、标签、UTF-8 正文大小与 revision 冲突规则。
-- 写入/查询共用 `Intl.Segmenter('zh')`、NFKC 与英文小写规范，字面 ILIKE 参数转义和 1–2 字短词计划。
-- Markdown 段落/标题/围栏优先的分块核心，接受模型 tokenizer 的计数端口，保留原文范围、行号和受 token 限制的 overlap；超长代码块可以切分。
-- 加权 RRF、chunk 去重、稳定排序，以及 embedding/Rerank 响应映射与数值校验。
-- 本次上下文引用白名单和上下文总 token/每文档片段上限。
+- `src/lib/domain/`：共享 schema 驱动的标题/标签/正文/revision 校验、写入与查询一致的中文词项、字面通配符转义与短词计划、Markdown 结构优先的分块核心、RRF、provider 响应校验、引用白名单与上下文限额。
+- `electron/services/knowledge/database/`：SQL 端口、版本/checksum 迁移器、事务与脱敏错误、typed documents/collections 仓储。
+- `db/`：完整 generations/chunks/embeddings/jobs/imports 的版本 SQL、3072 halfvec 与 1536 vector HNSW 索引、默认三分类，以及初始化/备份/迁移/回滚说明。
+- `tests/domain/`：领域、迁移控制流、随机 schema 与仓储行为测试。`tests/integration/test-schema.ts` 提供只清理自己创建的随机 schema 的助手。
 
-分词仅用于中文 FTS，不能替代模型 tokenizer。当前测试注入可控计数器来验证算法；真实 large3 tokenizer 的中英文 token 验证要在 B 锁定依赖后补齐。ICU 的词边界可能随运行时版本变化，升级运行时后应重新评估 normalizer/index profile。
+仓储暴露 `createPersistence({pool, now, createId, onRevision})`，返回公共 `KnowledgeService` 的 documents/collections 部分。保存、收藏、删除、恢复与批量导入在事务中执行；revision 更新后必须调用 `onRevision(connection, document, context)`，该必需回调供 A 的索引模块在同一事务保存 chunks/FTS/jobs，失败时整笔回滚。回调不得执行 provider 网络调用。
 
-## 验证
+分类删除采用数据库 `ON DELETE SET NULL`。列表在只读 repeatable-read 事务中返回分页结果和总数；导入按 fingerprint 使用 advisory lock，并持久化每条来源到文档的映射。原型分类 UUID 映射见 [数据库说明](../db/README.md)，待 CTO/B/C 同步。
 
-当前 worktree 尚无 `package.json`、正式测试发现或 M0 依赖基线，不能声称 `npm run check` / `npm test` / `npm run build` 通过。临时只读使用原工作区已有 TypeScript 编译器与 Node 22.22.0，测试输出写入本工作区忽略目录 `.cache/domain-test`，不共用 `.next` 或 Git index：
+分词仅用于中文 FTS，不能替代模型 tokenizer。分块与上下文核心强制注入 token 计数器；当前测试使用可控计数器验证算法，真实 large3 tokenizer 的中英文计数尚未验证。ICU 升级可能改变词边界，应重新评估 normalizer/index profile。
 
-```powershell
-& 'D:\Warp\demo\.runtime\node\node.exe' 'D:\Warp\demo\node_modules\typescript\bin\tsc' --target ES2022 --module commonjs --moduleResolution node --strict --esModuleInterop --skipLibCheck --types node --typeRoots 'D:\Warp\demo\node_modules\@types' --outDir .cache/domain-test tests/domain/data-retrieval-domain.test.ts
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-& 'D:\Warp\demo\.runtime\node\node.exe' --test .cache/domain-test/tests/domain/data-retrieval-domain.test.js
-```
+## 阶段与验证
 
-已实际执行：TypeScript 严格编译通过，领域行为测试 11/11 通过。最初失败已复现，分块 overlap 的推进与限额问题已修复。数据库集成、provider 网络、浏览器、Electron 和完整构建尚未执行。
+1. `1f400c1`：领域准备，严格 TypeScript 编译与 11/11 项领域行为测试通过。
+2. `7923e15`：版本迁移与 schema 隔离准备，新增 8/8 项离线测试通过；数据库 SQL 仍未实测。
+3. M0 后的仓储阶段：新增 4/4 项针对输入规范化、参数化正文、并发 revision、删除状态、索引失败回滚和分类校验的离线行为测试通过；共享输入范围与公共类型直接复用 M0。
 
-第二阶段准备了 [版本 SQL 和数据库操作说明](../db/README.md)、参数化迁移运行器与随机测试 schema。新增 8/8 项离线测试通过（累计 19 项），覆盖版本/checksum、失败回滚、扩展版本、取消、schema 注入防护及缺失 schema 不退回 public。它们使用 SQL 端口替身，真实 PostgreSQL/pgvector 尚未验证。
+M0 前只读使用原目录已有编译器，输出均写入本 worktree 忽略目录；M0 后使用本 worktree 独立的 node_modules、`.cache` 与 `.next`。离线迁移测试已移入 domain 组，避免被 `test:db` 当作真实数据库证据。
 
-## 给 B 的依赖与接口接入需求
+2026-10-16 已顺序执行并通过 `npm run check`、`npm test`（35/35 项）、`npm run build`（Next 静态导出与 Electron bundle）。`npm run test:db` 实际退出码为 2，原因是未提供专用 `TEST_DATABASE_URL`，不计为通过。当前 bundle 仍是 M0 原型入口，构建成功不代表仓储已经接到 IPC。
 
-B 统一锁定并发布 `pg` / `@types/pg`、`@langchain/core`、`@langchain/openai`、`@langchain/textsplitters` 与 large3 兼容 tokenizer（建议 `js-tiktoken`，验证 `cl100k_base`）。要求兼容 Node >=22.12，LangChain 可由 esbuild 打进 CJS 主进程；不要让 sandbox preload 依赖这些包。
+当前的离线 SQL 端口替身只验证控制流，不能证明 PostgreSQL 的真实回滚、FTS、索引或执行计划通过。
 
-测试发现须包含 `tests/domain/**/*.test.ts`、`tests/search/**/*.test.ts`，并为数据库和付费 eval 提供独立入口；普通 `npm test` 不联网。A 的后续服务会导出 `electron/services/knowledge/index.ts:createKnowledgeService(deps)`，接收 B 注入的设置快照、secret accessor、signal、operationId、事件与脱敏日志。
+## 尚需完成与给 B 的依赖请求
 
-正式应用服务与 CRUD 要在 M0 的公共类型到达后接入。真实数据库验证要求 PostgreSQL 17、pgvector >=0.8、pg_trgm。B 还需为版本 SQL 设置打包资源或文本 loader。未提供数据库连接和 provider key，当前没有检索质量或 live eval 结论。
+M0 已提供公共契约与测试发现，尚未提供以下运行时依赖：`pg`、`@types/pg`、`@langchain/core`、`@langchain/openai`、`@langchain/textsplitters`、large3 兼容 tokenizer（建议 `js-tiktoken`，验证 `cl100k_base`）。按目录所有权由 B 统一审查、安装和锁定，A 不改 package/lockfile。要求兼容 Node >=22.12；ESM 依赖由 esbuild 打入 CJS 主进程，sandbox preload 不加载它们。
+
+完整 `createKnowledgeService(deps)`、pg 连接池、真实 tokenizer、可恢复 embedding worker、混合检索、Cohere/LLM adapters、generation 重建切换、知识助手与 live eval 尚未交付，不应在平台中把当前仓储冒充完整服务。B 还需提供迁移 SQL 的打包资源或文本 loader。
+
+真实数据库验收需要明确的专用 `TEST_DATABASE_URL`、PostgreSQL >=17、public schema 的 pgvector >=0.8 和 pg_trgm；包括 CRUD/并发/导入/中文 FTS/短词/3072 索引 EXPLAIN/恢复任务/索引切换。应用服务不读取 process.env 或磁盘设置/秘密。
+
+当前未提供数据库或 provider 凭据，没有真实检索质量、3072/1536 路由能力、provider 用量或 live eval 结论。没有自动读取、搜索已有 key 或发送私人笔记。

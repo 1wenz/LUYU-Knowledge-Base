@@ -1,14 +1,8 @@
 import type { TokenCounter } from "./chunking";
+import type { Citation } from "../contracts";
 import { DomainError } from "./validation";
 
-export type CitationCandidate = {
-  chunkId: string;
-  documentId: string;
-  documentRevision: number;
-  title: string;
-  startLine: number;
-  endLine: number;
-};
+export type CitationCandidate = Citation;
 
 function key(value: CitationCandidate): string {
   return `${value.chunkId}:${value.documentId}:${value.documentRevision}`;

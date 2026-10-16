@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { withOwnedTestSchema } from "./test-schema";
+import { withOwnedTestSchema } from "../integration/test-schema";
 import type { SqlPool } from "../../electron/services/knowledge/database/ports";
 
 function fixture(failCreate = false) {
