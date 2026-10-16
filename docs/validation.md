@@ -67,3 +67,40 @@ EXE 文件属性为 ProductName/FileDescription=`Zhiyu`、ProductVersion=`0.1.0.
 证据在本 worktree 的忽略目录：`.cache/windows-package-report.json`（EXE 属性、签名、轮廓比对、目录包测试结果）、`.cache/package-desktop-drag.json`、`.cache/package-desktop-runtime.json`（目录包记录副本）、`.cache/desktop-drag.json`、`.cache/desktop-runtime.json`（最近源码桌面回归）、`.cache/package-exe-icon.png`、`.cache/window-native-icon.png`、`.cache/branding/manifest.json`。浏览器失败 trace 已保留为 `.cache/browser-damaged-data-trace.zip`，因为后续 Playwright 命令会重建 test-results。所有包、用户数据、图片与 trace 均不进入 Git。
 
 公开开发者 name/homepage/repository/support/copyright 尚未提供，API 返回 null；package/Windows 属性使用“未配置”，license 为 MIT。构建只读取显式公开环境变量，清单见 `.env.example`；不自动读取凭据环境文件。`release:check` 单独报告资料缺项，实验目录包允许未配置生成，正式发布应先运行该门禁。字体、页面 metadata/noindex、关于 UI 和完整检索链需 CTO 合并 A/C 后验证，不能以本分支的原型测试替代。
+
+## B4 命令门禁与 CTO 交接
+
+按用户后续指令，平台能力继续提交在 `feat/desktop-platform`，A/C 与主线的最终合并由 CTO 执行。本分支提供服务注入接口和本阶段证据；尚未注入 A 工厂，也未包含 C 的 Fluid UI，因此 B4 的完整产品集成验收仍由 CTO 完成。
+
+补齐 live eval 的 `EVAL_REQUEST_BUDGET` 门禁：必须显式传入正的安全整数，示例初始预算为 6。配置缺失、0、负数、小数、非数字或超出安全整数范围时，在编译/发现 provider 用例之前拒绝执行。测试先复现预算未校验和缺项未报告的失败，再修复；4 项新增门禁测试使用合成配置及空工作目录，即使门禁回归也发现不到真实 provider 测试，不会发起付费调用。底层 runner 对配置缺失/空测试组退出 2；这不代表实际 provider 的预算计数已经实现，A 的 eval runner 仍必须将请求和重试计入同一个预算、关闭 SDK 隐式重试。
+
+| 命令                                           | 结果                              | 当前限制                                                                                |
+| ---------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------- |
+| `npm run check` → `npm test` → `npm run build` | 顺序执行，全部通过；35 项离线测试 | 35 项包含新增的 4 项门禁测试；桌面/目录包沿用 B3 的实际结果，B4 未改运行时代码          |
+| `npm run test:db`                              | 未执行，命令非零退出              | 本次未配置独立 TEST_DATABASE_URL；本分支不含 A 的数据库用例                             |
+| `npm run eval:live`                            | 未执行，命令非零退出              | 本次开关关闭，未配置两家 key、EVAL_DATABASE_URL 和请求预算；本分支没有 tests/evals 用例 |
+| `npm run release:check`                        | 发布未就绪，命令非零退出          | 缺真实 name/homepage/repository/support/copyright                                       |
+
+版本边界：公开 IPC API=1，settings schemaVersion=1；v0 设置迁移先生成 `.v0.bak`，损坏/未来版本不覆盖。PostgreSQL schema、索引 generation 和至少 30 题 eval 数据集属于 A，当前平台分支尚无这些版本与质量报告。不能把门禁测试或原型搜索视为真实混合检索质量评估。
+
+CTO 合并时的具体接线顺序：
+
+1. 合并本分支的阶段提交与 A 的服务实现。保留主线已经加入的 LangChain/pg、motion、Markdown、无障碍等依赖与锁文件；本分支 B3/B4 没有新增依赖或锁文件变动。`scripts/test.mjs` 应保留主线新增的 portability/regressions 等发现目录，再合入本分支的预算检查，勿用分支旧文件覆盖主线。保留主线 `cb486d4` 的已完成操作历史裁剪修复，普通三方合并不会回退它。
+2. A 交付 `createKnowledgeService` 后，在 `electron/main.ts` 的 `createPlatform({...})` 参数中设置 `createKnowledgeService`。工厂需满足 `KnowledgeServiceFactory`，精确接口位于 `src/lib/contracts/service.ts` / `docs/contracts-v1.md` 第 9 节。平台已注入只读设置、异步秘密读取、脱敏 logger、事件 sink、时钟和 UUID；A 不需要导入 Electron。
+3. A 的 `applySettings(previous,next)` 在数据库/凭据切换时应关闭旧 pool 并重读秘密，普通保存不自动重建；所有服务方法遵守 signal，dispose 释放连接/worker。长任务使用平台给出的 operationId/context.emit，由平台负责 started、seq 和唯一终态。
+4. 合并 C 的真实 KnowledgeClient 接线；renderer 只访问固定 `window.desktop` API。UI 在启动长任务前生成 requestId、登记并订阅事件，取消/关闭时解除订阅；生产桌面断联应展示错误状态，浏览器 demo 明确标识。C 接上 favicon/OG metadata、noindex、离线字体和关于信息，修复本报告的原型 alert 定位问题。
+5. 接入服务后更新“未注入服务返回 CONFIG_REQUIRED”的专用测试夹具，使断联状态与完整服务场景分别有精确断言。然后在独立数据库及测试 userData 中验证新建资料 → 混合搜索/Rerank → 打开片段 → 助手引用 → 模型/温度保存 → 维度重建 → 断网降级 → 重启数据保留，再在 Windows 目录包重复；运行 A/C 的数据库、浏览器与 live eval 门禁后更新报告。
+
+回滚前备份正式 userData 的 settings.json/credentials.json、旧 localStorage 笔记和 PostgreSQL 数据/迁移版本；密文绑定原 Windows 安全上下文，跨机器应重新配置密钥。代码回滚不能清空设置或数据库来绕过版本检查；安装包签名、NSIS 安装/卸载与完整产品流程均需后续独立验收。
+
+| 阶段     | 本地提交                        | 交付内容                                                              |
+| -------- | ------------------------------- | --------------------------------------------------------------------- |
+| 原型保存 | `e1ebf13`                       | Next/TypeScript/Tailwind；此提交在分支要求提出前已进入 main，保留历史 |
+| 原型保存 | `da99317`、`39bb48f`、`be3eb5f` | 安全 Electron、初始化工作区/持久化测试、原型文档/运行时               |
+| M0       | `34157d2`                       | 公共 DTO/client/service、自动测试发现、自包含 Electron 编译和依赖基线 |
+| B1       | `abccee0`                       | 版本设置、safeStorage、会话秘密与脱敏错误                             |
+| B2       | `fd606c8`                       | 安全 IPC、来源与 schema、取消/长任务/窗口生命周期、服务注入           |
+| B3       | `85c21b4`                       | Windows 图标/文件属性、实际拖动、目录包回归与公开资料门禁             |
+| B4       | 当前交接提交                    | 请求预算校验、4 项离线门禁测试、最终证据与合并说明                    |
+
+本地提交由 CTO 选择合并，不自动推送、发布或修改其他 worktree；Prime Agent 工具和用户原目录未清理。

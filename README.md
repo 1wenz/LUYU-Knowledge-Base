@@ -29,24 +29,24 @@ npm run dev
 
 ## 常用命令
 
-| 命令                       | 用途                                             |
-| -------------------------- | ------------------------------------------------ |
-| `npm run dev`              | 同时启动 Next.js 和 Electron                     |
-| `npm run dev:web`          | 浏览器开发，地址 `http://127.0.0.1:3000`         |
-| `npm run check`            | Web、Electron、E2E 类型检查与 ESLint             |
-| `npm test`                 | 自动发现 domain/search/contracts/platform 测试   |
-| `npm run test:db`          | 独立 TEST_DATABASE_URL 的数据库集成测试          |
-| `npm run eval:live`        | 显式开关、两家 key 和独立测试库的付费 eval       |
-| `npm run build`            | Next.js 静态导出 + Electron 编译                 |
-| `npm run preview`          | 预览静态导出，地址 `http://127.0.0.1:3100`       |
-| `npm start`                | 打开已构建的 Electron 应用                       |
-| `npm run test:browser`     | Playwright 浏览器交互测试，需要先构建            |
-| `npm run test:desktop`     | Electron 静态页面与 preload 冒烟测试，需要先构建 |
-| `npm run package:dir`      | 生成未安装的桌面打包目录                         |
-| `npm run test:package:win` | 实际运行 Windows x64 目录包、验图标/沙盒/拖动    |
-| `npm run package`          | 生成 Windows NSIS 安装包                         |
-| `npm run release:check`    | 检查真实开发者资料，缺失时退出非零               |
-| `npm run format:check`     | Prettier 格式检查                                |
+| 命令                       | 用途                                                  |
+| -------------------------- | ----------------------------------------------------- |
+| `npm run dev`              | 同时启动 Next.js 和 Electron                          |
+| `npm run dev:web`          | 浏览器开发，地址 `http://127.0.0.1:3000`              |
+| `npm run check`            | Web、Electron、E2E 类型检查与 ESLint                  |
+| `npm test`                 | 自动发现 domain/search/contracts/platform 测试        |
+| `npm run test:db`          | 独立 TEST_DATABASE_URL 的数据库集成测试               |
+| `npm run eval:live`        | 显式开关、两家 key、独立测试库与正整数预算的付费 eval |
+| `npm run build`            | Next.js 静态导出 + Electron 编译                      |
+| `npm run preview`          | 预览静态导出，地址 `http://127.0.0.1:3100`            |
+| `npm start`                | 打开已构建的 Electron 应用                            |
+| `npm run test:browser`     | Playwright 浏览器交互测试，需要先构建                 |
+| `npm run test:desktop`     | Electron 静态页面与 preload 冒烟测试，需要先构建      |
+| `npm run package:dir`      | 生成未安装的桌面打包目录                              |
+| `npm run test:package:win` | 实际运行 Windows x64 目录包、验图标/沙盒/拖动         |
+| `npm run package`          | 生成 Windows NSIS 安装包                              |
+| `npm run release:check`    | 检查真实开发者资料，缺失时退出非零                    |
+| `npm run format:check`     | Prettier 格式检查                                     |
 
 浏览器测试首次运行需安装 Chromium：
 
@@ -59,7 +59,7 @@ npm run test:desktop
 
 也可使用已安装的 Chrome：`$env:PLAYWRIGHT_CHANNEL = 'chrome'`。
 
-并行浏览器验证可设置 `$env:ZHIYU_PREVIEW_PORT = '3122'`，避免占用另一位 agent 的 3100 端口。类型检查与 Next 构建按 check → test → build 顺序执行。数据库和 eval 缺配置、或 A 的测试尚未合并时会明确返回“未执行”和非零状态，不会把空测试组标为通过。
+并行浏览器验证可设置 `$env:ZHIYU_PREVIEW_PORT = '3122'`，避免占用另一位 agent 的 3100 端口。类型检查与 Next 构建按 check → test → build 顺序执行。数据库和 eval 缺配置、或 A 的测试尚未合并时会明确返回“未执行”和非零状态，不会把空测试组标为通过。live eval 还要求显式设置正整数 `EVAL_REQUEST_BUDGET`（初始使用 6）；具体 provider runner 必须将每次请求和重试计入同一预算。
 
 ## 桌面设置与构建资料
 
