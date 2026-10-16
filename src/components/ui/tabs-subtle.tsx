@@ -20,7 +20,7 @@ export function TabsSubtle({
     <Tabs.Root value={value} onValueChange={onValueChange} className="min-w-0">
       <Tabs.List
         aria-label={label}
-        className="mb-4 flex w-fit max-w-full gap-1 rounded-lg bg-muted p-1"
+        className="mb-4 flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1"
       >
         {tabs.map((tab) => (
           <Tabs.Trigger

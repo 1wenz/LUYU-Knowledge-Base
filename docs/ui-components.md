@@ -109,3 +109,13 @@ Markdown 使用 React 文本/元素实现有限基础语法（标题、段落、
 `useOperation` 在 effect 中建立订阅，点击发送时先登记 operationId，再调用 start；校验 operation schema、id 和递增 seq，终态后忽略后续事件。context 中的引用必须逐字段匹配本次 SearchResponse hits；completed 引用同样受该白名单约束。真实事件驱动检索/生成阶段，流式 Markdown 复用安全预览。切换视图移除订阅并取消任务；主动停止可重发，失败可重试，模型/key 缺失指向设置。靠近底部时跟随文字，向上阅读后暂停跟随并提供回到最新回答按钮。
 
 C3 验证：`npm run check`、`npm test`（12 项）和 `npm run build` 通过；独立 Edge 生产浏览器助手组 4 项通过。测试覆盖 IME、Shift+Enter、空问题、同帧双发送、停止后重发、启动失败恢复、未知 operation、重复 seq、终态后事件、伪造来源、来源打开和视图切换清理。初始来源流测试先因缺少助手输入失败。Border Beam 复用 C1 的聚焦/生成、no-drag 和 reduced motion 行为。
+
+### C4 · 设置、重建与关于
+
+`SettingsPanel` 只持有共享 `SettingsView` 的公开快照和当前编辑草稿；每个设置组通过 `settings.update({ expectedRevision, patch })` 单独提交，提交前使用同一 contracts schema 解析，冲突提示重新加载并清除本地草稿。数据库 host/port/name/user/TLS、模型 ID/能力、Embedding 维度、chunk/overlap、关键词/向量候选、权重、Rerank、温度、上下文和输出预算、主题及减少动态效果均有 label、单位和直接输入。远程数据库的证书约束由共享 schema 提供。
+
+凭据使用独立 `SecretField`，值不会回填、写入 demo localStorage 或进入页面状态之外的可持久层；提交和删除后清空输入，只显示未配置/当前会话/系统加密状态。浏览器 demo 只能选择当前会话，桌面默认系统加密并由 B 的 safeStorage 决定可用性。模型列表、数据库/OpenRouter/Cohere 测试都必须点击，不在打开设置时自动发起 provider 调用；连接失败只展示公开错误。
+
+向量维度或分块设置保存后只展示 `requiresReindex`。用户进入索引组点击重建，二次确认后由 `useOperation` 订阅 `progress/completed/cancelled/failed`，显示文档数、片段数、进度与失败数；取消时保留当前 active generation。关于页读取 `system.getInfo` 的版本、运行模式、架构和公共开发者资料，未知显示“未配置”；许可证按钮读取随包文本，外链仍走 `system.openExternal` 白名单。
+
+C4 验证：`npm run check`、`npm test`（12 项）、`npm run build` 均通过；Edge 生产导出设置组 4 项通过。覆盖范围与跨字段错误、expectedRevision 冲突、密钥清除与不落 localStorage、显式重建确认/进度/取消、模型列表/连接探测按需触发、主题与 reduced motion 以及关于/许可证信息。未声称真实 PostgreSQL、safeStorage、provider 或 Windows 窗口集成已通过，需 B/A 集成环境补验。
