@@ -13,6 +13,8 @@
 - `tests/domain/`：领域、迁移控制流、随机 schema 与仓储行为测试。`tests/integration/test-schema.ts` 提供只清理自己创建的随机 schema 的助手。
 - `electron/services/knowledge/retrieval/hybrid.ts`：`createHybridSearch(ports)`，关键词与 query embedding 并行、active profile 查询、稳定 RRF、最多 50 个 Rerank 候选、失败降级及来源 revision 前后复核。SQL 召回端口尚未接通。
 - `electron/services/knowledge/providers/cohere.ts`：可注入 fetch 的真实 Cohere v2 HTTP adapter，固定 `rerank-v3.5`，校验 `top_n` 与响应 index，鉴权不重试，429/短暂 5xx/网络最多重试两次。总预算覆盖请求、响应体和退避，取消不依赖 provider 遵守 signal。尚未调用真实 API。
+- `providers/openrouter.ts`：LangChain `Embeddings` 兼容 adapter，固定 OpenRouter large3 endpoint/model，显式传维度，响应按 index 复原。默认每批最多 16 段/8192 token、并发 2，最多 2 次显式重试，所有实际请求经过预算钩子；批次失败取消其余请求。
+- `indexing/worker.ts`：持久化租约、`SKIP LOCKED` 领取、网络在事务外、每批条件写回、配置/版本/内容缓存、取消释放和过期租约恢复；每任务最多领取 5 次。部分成功保留，后续只补缺失向量。`003_embedding_cache.sql` 新增缓存查找索引，不改写已发布迁移。
 
 仓储暴露 `createPersistence({pool, now, createId, onRevision})`，返回公共 `KnowledgeService` 的 documents/collections 部分。保存、收藏、删除、恢复与批量导入在事务中执行；revision 更新后必须调用 `onRevision(connection, document, context)`，该必需回调供 A 的索引模块在同一事务保存 chunks/FTS/jobs，失败时整笔回滚。回调不得执行 provider 网络调用。
 
@@ -39,11 +41,13 @@ M0 前只读使用原目录已有编译器，输出均写入本 worktree 忽略�
 
 SQL 召回阶段在本分支顺序通过 `npm run check` → `npm test`（112/112）→ `npm run build`，随后 `npm run test:db` 的 3 项真实集成测试通过（包含生产 pg adapter、迁移/CRUD/回滚/FTS/过滤/3072 索引计划）。测试仅使用 CTO 提供的隔离实例和本次生成的随机 schema；没有真实 provider 调用。平台组合根仍未注入 A 的完整服务。
 
+embedding/worker 阶段顺序通过 `npm run check` → `npm test`（116/116）→ `npm run build`；真实数据库组 7/7 通过，新增缓存复用、修改/删除期间拒绝旧响应、部分成功后重启补缺、过期租约恢复、取消与维度错误的持久化验证。OpenRouter HTTP 全部为合成 mock；尚无真实路由/付费用量结论。
+
 ## 尚需完成与给 B 的依赖请求
 
 已合入 CTO 发布的 `b7a9b77` 共享依赖/测试基线，版本见 [dependency-baseline.md](dependency-baseline.md)。本 worktree 独立 `npm ci` 成功；A 没有另行修改 package/lockfile。ESM 依赖由 esbuild 打入 CJS 主进程，sandbox preload 不加载它们。
 
-完整 `createKnowledgeService(deps)`、可恢复 embedding worker、LangChain embedding/LLM adapters、generation 重建切换、知识助手与 live eval 尚未交付，不应在平台中把当前仓储与端口编排冒充完整服务。B 还需提供迁移 SQL 的打包资源或文本 loader。
+完整 `createKnowledgeService(deps)`、LangChain LLM adapter、generation 重建切换、知识助手与 live eval 尚未交付，不应在平台中把当前仓储与端口编排冒充完整服务。B 还需提供迁移 SQL 的打包资源或文本 loader；资源列表现在包括 `003_embedding_cache.sql`。
 
 真实数据库验收需要明确的专用 `TEST_DATABASE_URL`、PostgreSQL >=17、public schema 的 pgvector >=0.8 和 pg_trgm；包括 CRUD/并发/导入/中文 FTS/短词/3072 索引 EXPLAIN/恢复任务/索引切换。应用服务不读取 process.env 或磁盘设置/秘密。
 
