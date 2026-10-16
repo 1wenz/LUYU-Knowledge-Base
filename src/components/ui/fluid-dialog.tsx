@@ -4,7 +4,7 @@
 // Uses the installed Radix facade; no parallel primitive or animation runtime.
 import { Dialog } from "radix-ui";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 export function FluidDialog({
   open,
@@ -14,6 +14,7 @@ export function FluidDialog({
   children,
   trigger,
   drawer = false,
+  className = "",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -22,13 +23,27 @@ export function FluidDialog({
   children: ReactNode;
   trigger?: ReactNode;
   drawer?: boolean;
+  className?: string;
 }) {
+  const returnFocus = useRef<HTMLElement | null>(null);
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger && <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content className={drawer ? "fluid-drawer" : "fluid-dialog"}>
+        <Dialog.Content
+          className={`${drawer ? "fluid-drawer" : "fluid-dialog"} ${className}`}
+          onOpenAutoFocus={() => {
+            returnFocus.current =
+              document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          }}
+          onCloseAutoFocus={(event) => {
+            if (returnFocus.current?.isConnected) {
+              event.preventDefault();
+              returnFocus.current.focus();
+            }
+          }}
+        >
           <div className="mb-6 pr-10">
             <Dialog.Title className="text-xl">{title}</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-muted-foreground">

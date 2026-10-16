@@ -360,6 +360,36 @@
   inherits: false;
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.fluid-field {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 1rem;
+}
+
+.fluid-dialog.document-editor {
+  width: min(56rem, calc(100vw - 2rem));
+}
+
+.workspace-shell > aside {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
 @keyframes border-beam {
   to {
     --beam-angle: 360deg;
