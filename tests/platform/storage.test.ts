@@ -71,6 +71,15 @@ test("损坏/未来版本文件保持原样；v0 显式迁移并备份", async (
   assert.equal(await readFile(path + ".v0.bak", "utf8"), old);
 });
 
+test("Windows UTF-8 BOM 不会把有效设置文件判为损坏", async (t) => {
+  const path = join(await directory(t), "settings.json");
+  const content = JSON.stringify(DEFAULT_SETTINGS);
+  await writeFile(path, "\uFEFF" + content, "utf8");
+  const store = await SettingsStore.open(path);
+  assert.equal(store.get().database.host, DEFAULT_SETTINGS.database.host);
+  assert.equal(store.get().revision, DEFAULT_SETTINGS.revision);
+});
+
 test("保存失败不会假装成功，也不改变内存 revision", async (t) => {
   const path = join(await directory(t), "settings.json");
   const store = await SettingsStore.open(path, {

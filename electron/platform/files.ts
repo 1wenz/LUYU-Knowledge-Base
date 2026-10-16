@@ -15,7 +15,12 @@ export const diskJsonFiles: JsonFiles = {
   async read(path) {
     try {
       if ((await stat(path)).size > 128 * 1024) throw new PlatformError("SCHEMA_MISMATCH");
-      return JSON.parse(await readFile(path, "utf8"));
+      // Windows tools may emit a UTF-8 BOM. JSON.parse rejects it even though
+      // it is a valid marker for a UTF-8 text file, so normalize it at the
+      // storage boundary instead of reporting a healthy settings file as
+      // schema corruption.
+      const content = await readFile(path, "utf8");
+      return JSON.parse(content.replace(/^\uFEFF/, ""));
     } catch (error) {
       if (hasCode(error, "ENOENT")) return null;
       if (error instanceof SyntaxError) throw new PlatformError("SCHEMA_MISMATCH");
