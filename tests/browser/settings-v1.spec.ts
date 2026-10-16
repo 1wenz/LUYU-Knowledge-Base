@@ -35,6 +35,7 @@ test("设置复用范围和跨字段约束，更新按组提交并检测 revisio
   await expect(page.getByLabel("温度", { exact: true })).toHaveValue("0.2");
   await page.getByLabel("温度", { exact: true }).fill("0.8");
   await page.getByRole("button", { name: "保存生成设置", exact: true }).click();
+  await expect(page.getByText("生成设置已保存。", { exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () => JSON.parse(localStorage.getItem("zhiyu:demo:v1")!).settings.retrieval.resultCount,

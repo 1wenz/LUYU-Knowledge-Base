@@ -132,7 +132,6 @@ export function DocumentEditor({
               onChange={(event) => setTitle(event.target.value)}
               required
               maxLength={240}
-              autoFocus
             />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">

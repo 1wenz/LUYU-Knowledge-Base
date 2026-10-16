@@ -26,6 +26,8 @@ export async function installClient(
     assistantReady?: boolean;
     noiseEvents?: boolean;
     failStartOnce?: boolean;
+    longAnswer?: boolean;
+    indexPending?: boolean;
   } = {},
 ) {
   await page.addInitScript({
@@ -51,6 +53,11 @@ export async function installClient(
     window.desktop.models.list = request => { stats.modelLists++; return originalModelList(request); };
     const originalProbe = window.desktop.connections.test;
     window.desktop.connections.test = request => { stats.probes++; return originalProbe(request); };
+    const originalQuery = window.desktop.search.query;
+    window.desktop.search.query = async request => {
+      const result = await originalQuery(request);
+      return fixtureOptions.indexPending && result.ok ? {...result, value: {...result.value, warnings: [...result.value.warnings, {stage: 'vector', reason: 'index-pending', message: '向量索引尚未完成，已使用当前可用的关键词结果。'}]}} : result;
+    };
     const originalStart = window.desktop.assistant.start;
     window.desktop.assistant.start = request => {
       stats.starts++;
@@ -65,6 +72,8 @@ export async function installClient(
       const off = originalSubscribe(event => {
         let delivered = event;
         if (fixtureOptions.noiseEvents && event.payload.type === 'context' && event.payload.citations.length) delivered = {...event, payload: {...event.payload, citations: [...event.payload.citations, {...event.payload.citations[0], chunkId: crypto.randomUUID(), title: '伪造来源'}]}};
+        if (fixtureOptions.longAnswer && event.payload.type === 'delta') delivered = {...event, payload: {type: 'delta', text: ('长回答中的原文核对段落。' + event.payload.text + '\\n').repeat(35)}};
+        if (fixtureOptions.longAnswer && event.payload.type === 'completed') delivered = {...event, payload: {type: 'completed', citations: event.payload.citations}};
         listener(delivered);
         if (fixtureOptions.noiseEvents) {
           listener({...event, operationId: crypto.randomUUID(), payload: {type: 'delta', text: '旧操作污染'}});

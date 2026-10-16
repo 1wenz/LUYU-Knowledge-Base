@@ -69,9 +69,18 @@ export function SettingsPanel({
   }, []);
 
   const refreshIndex = useCallback(() => {
-    return client.index.status(command({})).then(unwrap).then(status => {
-      if (mounted.current) { setIndex(status); setIndexError(""); }
-    }).catch(error => { if (mounted.current) setIndexError(readableError(error)); });
+    return client.index
+      .status(command({}))
+      .then(unwrap)
+      .then((status) => {
+        if (mounted.current) {
+          setIndex(status);
+          setIndexError("");
+        }
+      })
+      .catch((error) => {
+        if (mounted.current) setIndexError(readableError(error));
+      });
   }, [client]);
   useEffect(() => {
     let active = true;
@@ -367,11 +376,11 @@ export function SettingsPanel({
                   />
                 </label>
                 <datalist id="available-chat-models">
-                    {models.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
+                  {models.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
                 </datalist>
                 <FluidButton
                   variant="tertiary"

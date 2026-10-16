@@ -26,6 +26,7 @@ import type {
   Collection,
   Document,
   DocumentPage,
+  IndexStatus,
   KnowledgeClient,
   ListDocuments,
   SettingsView,
@@ -56,6 +57,8 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selected, setSelected] = useState<Document | null>(null);
   const [settings, setSettings] = useState<SettingsView | null>(null);
+  const [indexStatus, setIndexStatus] = useState<IndexStatus | null>(null);
+  const [indexError, setIndexError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -115,6 +118,30 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
     };
   }, [client]);
   useEffect(() => {
+    let active = true;
+    void client.index
+      .status(command({}))
+      .then(unwrap)
+      .then((status) => {
+        if (active) {
+          setIndexStatus(status);
+          setIndexError("");
+        }
+      })
+      .catch((error) => {
+        if (active) setIndexError(readableError(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    client,
+    refresh,
+    settings?.settings.revision,
+    settings?.index.activeGenerationId,
+    settings?.index.requiresReindex,
+  ]);
+  useEffect(() => {
     if (!settings) return;
     const root = document.documentElement;
     const appearance = settings.settings.appearance;
@@ -125,6 +152,7 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
+      if (document.querySelector('[role="dialog"][data-state="open"]')) return;
       if (event.key.toLowerCase() === "k") {
         event.preventDefault();
         setView("search");
@@ -282,7 +310,7 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
       >
         {navContent}
       </FluidSidebar>
-      <div className="min-w-0 flex-1">
+      <div className="workspace-body min-w-0 flex-1">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-card p-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <FluidButton
@@ -337,6 +365,27 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
             演示数据只保存在当前浏览器。检索和回答用于体验界面，不调用云端模型。
           </p>
         )}
+        {indexError ||
+        indexStatus?.pendingCount ||
+        indexStatus?.failedCount ||
+        indexStatus?.requiresReindex ? (
+          <div
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-2 text-sm text-warning"
+            aria-label="索引提示"
+          >
+            <span>
+              {indexError
+                ? "索引状态暂不可用，请在设置中检查连接。"
+                : indexStatus?.requiresReindex
+                  ? "索引配置已更改，需要重建。"
+                  : `向量待处理 ${indexStatus?.pendingCount ?? 0} 个片段`}
+            </span>
+            {!!indexStatus?.failedCount && <span>索引失败 {indexStatus.failedCount} 个片段</span>}
+            <FluidButton variant="ghost" onClick={() => choose("settings")}>
+              查看索引设置
+            </FluidButton>
+          </div>
+        ) : null}
         {message && (
           <p
             role="status"
@@ -372,10 +421,11 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
         )}
         <main id="workspace-main" tabIndex={-1}>
           {view === "notes" && (
-            <div className="grid min-w-0 lg:grid-cols-[20rem_minmax(0,1fr)]">
+            <div className="notes-layout min-w-0">
               <section
                 aria-label="笔记列表"
-                className={`min-w-0 border-r p-5 ${selected ? "hidden lg:block" : ""}`}
+                data-detail-open={!!selected}
+                className="notes-list min-w-0 border-r p-5"
               >
                 <h1 className="text-2xl">{activeLabel}</h1>
                 <p className="my-3 text-sm text-muted-foreground">
@@ -482,7 +532,7 @@ export function Workspace({ client, mode }: { client: KnowledgeClient; mode: "de
                   <article>
                     <FluidButton
                       variant="ghost"
-                      className="mb-4 lg:hidden"
+                      className="note-detail-return mb-4"
                       onClick={() => setSelected(null)}
                     >
                       返回笔记列表
