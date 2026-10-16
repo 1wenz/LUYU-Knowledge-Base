@@ -19,4 +19,8 @@ export default defineConfig([
     "playwright-report/**",
     "test-results/**",
   ]),
+  {
+    files: ["electron-builder.config.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
 ]);

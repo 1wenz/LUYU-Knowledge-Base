@@ -94,7 +94,9 @@ test("字体与品牌均从本地加载，工作区不被索引", async ({ page 
   await expect(page.locator("body")).not.toContainText(/\?{2,}/);
   await page.evaluate(() => document.fonts.ready);
   const fonts = await page.evaluate(() =>
-    [...document.fonts].filter((font) => font.status === "loaded").map((font) => font.family),
+    Array.from(document.fonts)
+      .filter((font) => font.status === "loaded")
+      .map((font) => font.family),
   );
   expect(fonts).toContain("Geist");
   expect(fonts).toContain("LXGW WenKai Screen");

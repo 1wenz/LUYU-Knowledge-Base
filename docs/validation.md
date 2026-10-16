@@ -26,7 +26,7 @@ A 的 PostgreSQL/检索服务和 C 的新 UI 不在本分支的实现范围。�
 
 2026-10-16：18 项测试和 `npm run check` 通过。测试先确认平台模块缺失导致失败，再验证 revision 竞争、UTF-8 限制、损坏/迁移备份、写入失败、删除后重启、加密不可用、会话模式和合成秘密脱敏。
 
-Electron 官方下载器本次 `fetch failed`，直接 GitHub 连接超时。正在复用本机已启用的系统代理进行进程级重试，没有修改全局代理或运行时；下载结果与真实桌面检查在 B2/B3 更新。
+Electron 官方下载器最初 `fetch failed`，直接 GitHub 连接超时。随后复用本机已启用的系统代理进行进程级重试，官方二进制安装成功；没有修改全局代理或运行时。真实桌面检查见 B2/B3。
 
 ## B2 安全 IPC 与生命周期
 
@@ -39,3 +39,31 @@ Electron 官方下载器本次 `fetch failed`，直接 GitHub 连接超时。正
 2026-10-16：check 与 build 通过；31 项单元/平台测试通过。真实 Electron 4 个用例均已验证：静态沙盒/旧兼容入口；固定 API 与输入攻击；Windows safeStorage 设置/删除跨三次重启；同源未注册窗口拒绝和导航/弹窗阻止。最后一项最初因测试从 getLastWebPreferences 读取不到 preload 路径而超时，夹具改用应用根目录明确路径后单项复验通过，未放宽应用安全参数。流式时间断言使用 mock clock，避免负载导致定时等待不稳定。
 
 Electron 44.7.2 官方二进制经本机已有系统代理的进程级设置安装成功。测试使用独立 `.cache/desktop-tests/user-*` userData，不接触用户正式配置或笔记。截图 `.cache/desktop-preview.png`，失败 trace 留在忽略的 test-results（后续测试会更新）。
+
+## B3 Windows 窗口、品牌与目录包
+
+2026-10-16，在 Windows 10.0.26200 x64 验证。构建工具为 Node 22.22.0 / npm 10.9.2、electron-builder 26.15.3；实际 Electron 44.7.2 内运行 Chrome 152.0.7977.149 / Node 24.21.0。正式 appId `com.zhiyu.knowledgebase`、productName `Zhiyu` 与原 userData 路径保持兼容；测试仅覆盖显式隔离的 userData。
+
+原生标题栏通过 Windows SendInput 实际鼠标拖动，未用 setBounds 代替。目录包记录 bounds 从 `{x:0,y:0,width:1280,height:752}` 移至 `{x:70,y:43,width:1280,height:753}`；当前桌面工作区限制了设计初始 1380×900 的实际大小。最大化后“新建笔记”按钮、对话框文本输入、Escape 和还原正常；关闭后记录的 Electron 主进程/辅助进程全部退出。拖动测试最初误用 Playwright 启动包装进程的 PID，严格 HWND/PID 检查拒绝操作；改为 Electron 主进程的实际 `process.pid` 后通过，未放宽窗口归属校验。
+
+从 `public/brand/brush.svg` 生成 16/24/32/48/64/128/256 PNG 帧的 ICO、favicon 和 1200×630 OG 位图；源 SHA-256 为 `f7d9e322d7625f9c3573212ae4a1dc551aede745fbdca681e04dec68c3b2645e`。构建时生成至 `.cache/branding/`，静态资源复制到 out；源码、产物和 logo 同源。抽取实际 EXE 32×32 图标及窗口 256×256 原生图标并目视检查，墨色轮廓交并比分别为 0.9859 / 0.9881（门槛 0.8）。
+
+`npm run package:dir` 已生成并实际启动 `release/win-unpacked/Zhiyu.exe`，PE 头确认 x64。main/preload 为自包含 bundle，构建检查 preload 仅有 Electron 外部依赖，main 仅有 Electron/Node 内建；目录包排除 node_modules，使用 knowledge://app 静态协议启动，没有 Next.js 生产服务器。
+
+EXE 文件属性为 ProductName/FileDescription=`Zhiyu`、ProductVersion=`0.1.0.0`、CompanyName=`未配置`、LegalCopyright=`开发者未配置`。electron-builder 26 将 FileDescription 写为 productName，中文业务描述保留在 package.json。检查曾发现 extraMetadata.author 字符串导致 CompanyName 残留 Electron 的 GitHub, Inc.，已改为 `{name: ...}`，重新打包后确认修复。Get-AuthenticodeSignature 结果为 `NotSigned`，不具备已签名发布验收或 SmartScreen 信誉证明。
+
+| 检查                       | 本次结果           | 范围与证据                                                                                                  |
+| -------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `npm run check`            | 通过               | Web、Electron、E2E 类型与 ESLint                                                                            |
+| `npm test`                 | 31 项通过          | 原型业务、契约与平台行为；不含 A 的数据库/检索实现                                                          |
+| `npm run build`            | 通过               | 图标、Next 静态导出、独立 Electron bundle 与静态品牌资源；package:dir 中再次执行成功                        |
+| `npm run package:dir`      | 通过               | Windows x64 目录包生成；未构建 NSIS 安装包                                                                  |
+| `npm run test:desktop`     | 5 项通过           | 构建源码的完整桌面回归，包含 SendInput 拖动与退出清理                                                       |
+| `npm run test:package:win` | 5 项通过           | 实际目录包的沙盒/preload、参数攻击、safeStorage 跨重启、未注册窗口、拖动/输入/进程退出；另验 EXE 属性与图标 |
+| `npm run test:browser`     | 3 项通过、1 项失败 | 当前分支初始化原型，Chrome；并非 C 的 Fluid UI 验收                                                         |
+
+浏览器失败位于 `tests/browser/knowledge.spec.ts:48`：损坏数据用例的 `getByRole("alert")` 同时匹配业务错误提示与 Next 的 `__next-route-announcer__`，触发 strict mode violation。实际业务提示包含“写入已暂停”，但后续按钮/原数据断言未执行。该文件由 Agent C 负责；C/CTO 合并 UI 时应把定位限定到包含“写入已暂停”的业务 alert，再验证禁用写入和损坏原文保持，不删除 Next 的无障碍播报器或降低断言要求。
+
+证据在本 worktree 的忽略目录：`.cache/windows-package-report.json`（EXE 属性、签名、轮廓比对、目录包测试结果）、`.cache/package-desktop-drag.json`、`.cache/package-desktop-runtime.json`（目录包记录副本）、`.cache/desktop-drag.json`、`.cache/desktop-runtime.json`（最近源码桌面回归）、`.cache/package-exe-icon.png`、`.cache/window-native-icon.png`、`.cache/branding/manifest.json`。浏览器失败 trace 已保留为 `.cache/browser-damaged-data-trace.zip`，因为后续 Playwright 命令会重建 test-results。所有包、用户数据、图片与 trace 均不进入 Git。
+
+公开开发者 name/homepage/repository/support/copyright 尚未提供，API 返回 null；package/Windows 属性使用“未配置”，license 为 MIT。构建只读取显式公开环境变量，清单见 `.env.example`；不自动读取凭据环境文件。`release:check` 单独报告资料缺项，实验目录包允许未配置生成，正式发布应先运行该门禁。字体、页面 metadata/noindex、关于 UI 和完整检索链需 CTO 合并 A/C 后验证，不能以本分支的原型测试替代。
