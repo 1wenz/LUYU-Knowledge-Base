@@ -5,7 +5,8 @@ test("静态导出在沙盒桌面窗口中加载，preload IPC 可用", async ()
   const { application, page } = await desktopFixture();
   try {
     await expect(page.getByRole("heading", { name: "全部笔记", exact: true })).toBeVisible();
-    await expect(page.getByText("本地存储已就绪")).toBeVisible();
+    await expect(page.getByText("本地知识工作区", { exact: true })).toBeVisible();
+    await expect(page.getByText("浏览器演示", { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => location.protocol)).toBe("knowledge:");
     const info = await page.evaluate(() =>
       (

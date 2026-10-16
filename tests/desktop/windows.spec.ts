@@ -11,6 +11,17 @@ test("Windows 原生标题栏经 SendInput 拖动，最大化后按钮和输入�
   const { application, page } = await desktopFixture();
   try {
     await page.waitForFunction(() => !!window.desktop?.system);
+    if (process.env.ZHIYU_TEST_SCALE_FACTOR)
+      expect(await page.evaluate(() => window.devicePixelRatio)).toBe(
+        Number(process.env.ZHIYU_TEST_SCALE_FACTOR),
+      );
+    // Keep this owned test window above other desktop activity while sending real input.
+    await application.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0];
+      window.setAlwaysOnTop(true);
+      window.show();
+      window.focus();
+    });
     const before = await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].getBounds(),
     );
@@ -18,7 +29,7 @@ test("Windows 原生标题栏经 SendInput 拖动，最大化后按钮和输入�
       BrowserWindow.getAllWindows()[0].getNativeWindowHandle().readBigUInt64LE().toString(),
     );
     const mainProcessId = await application.evaluate(() => process.pid);
-    await execute(
+    const nativeDrag = await execute(
       "powershell.exe",
       [
         "-NoProfile",
@@ -40,7 +51,11 @@ test("Windows 原生标题栏经 SendInput 拖动，最大化后按钮和输入�
     );
     await writeFile(
       resolve(".cache/desktop-drag.json"),
-      JSON.stringify({ method: "SendInput", before, after }, null, 2),
+      JSON.stringify(
+        { method: "SendInput", before, after, native: JSON.parse(nativeDrag.stdout) },
+        null,
+        2,
+      ),
     );
     expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y)).toBeGreaterThan(20);
     await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].maximize());
@@ -49,12 +64,12 @@ test("Windows 原生标题栏经 SendInput 拖动，最大化后按钮和输入�
         BrowserWindow.getAllWindows()[0].isMaximized(),
       ),
     ).toBe(true);
-    await page.getByRole("button", { name: "新建笔记" }).first().click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    const input = page.getByRole("dialog").getByRole("textbox").first();
-    await input.fill("拖动回归输入");
-    await expect(input).toHaveValue("拖动回归输入");
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "打开设置", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "设置与关于", exact: true })).toBeVisible();
+    const input = page.getByLabel("主机", { exact: true });
+    await input.fill("desktop-drag.test");
+    await expect(input).toHaveValue("desktop-drag.test");
+    await page.getByRole("button", { name: "全部笔记", exact: true }).click();
     await application.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].unmaximize(),
     );

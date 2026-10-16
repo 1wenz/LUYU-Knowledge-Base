@@ -2,6 +2,8 @@
 
 ## 最新协调（2026-10-16）
 
+Fluid 桌面用例已与 main 同步，E2E 类型检查、5 项真实桌面组和 3 次独立拖动重复通过；渲染缩放 1.25，原生 DPI=192。复验发现辅助脚本原先混用坐标尺度及窗口被其他活动遮挡，现统一物理坐标、验证真实标题栏命中与点下窗口，并仅置顶自己拥有的被测窗口。真实数据库用例仍等待生产工厂。
+
 C4 `3a27137` 已在 main 完成整合验证：check、121 项离线测试、build、31 项 Edge 生产浏览器测试全部通过。设置覆盖数据库/凭据、聊天模型、embedding 维度、分块、候选/重排/片段数、温度与预算、外观、显式重建和关于信息；冲突和秘密清除已有行为测试。真实 safeStorage/数据库/重建联调将随服务工厂注入后验收。
 
 迁移资源阶段 `92851c5` 已在集成 worktree 验证：主进程 `.sql` text loader 和 `electron/platform/migration-resources.ts` 的 `knowledgeMigrations`，通过实际 CJS bundle 在临时目录逐项核对版本/checksum。A 的工厂请接收显式迁移参数（例如 `createKnowledgeService(deps, { migrations })`），组合根负责传入这些可信资源；无需 A 从文件系统或 renderer 加载 SQL。

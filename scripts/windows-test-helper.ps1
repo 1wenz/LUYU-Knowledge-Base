@@ -13,12 +13,18 @@ using System;
 using System.Runtime.InteropServices;
 public static class ZhiyuNativeTest {
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx, dy; public uint mouseData, dwFlags, time; public UIntPtr dwExtraInfo; }
   [StructLayout(LayoutKind.Explicit)] public struct UNION { [FieldOffset(0)] public MOUSEINPUT mouse; }
   [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public UNION data; }
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr handle, out RECT rect);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr handle);
+  [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+  [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT point);
+  [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr handle, uint flags);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr handle, int command);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int metric);
   [DllImport("user32.dll")] public static extern uint SendInput(uint count, INPUT[] input, int size);
@@ -58,13 +64,22 @@ if ($Action -eq 'WindowIcon') {
     exit 0
 }
 
+# GetWindowRect, virtual desktop metrics and SendInput must use the same physical pixels.
+if ([ZhiyuNativeTest]::SetThreadDpiAwarenessContext([IntPtr]::new(-4)) -eq [IntPtr]::Zero) { throw 'Cannot enable per-monitor physical coordinates.' }
 $null = [ZhiyuNativeTest]::ShowWindow($nativeWindow, 9)
 $null = [ZhiyuNativeTest]::SetForegroundWindow($nativeWindow)
 Start-Sleep -Milliseconds 250
 $windowRect = New-Object ZhiyuNativeTest+RECT
 if (![ZhiyuNativeTest]::GetWindowRect($nativeWindow, [ref]$windowRect)) { throw 'GetWindowRect failed.' }
 $captionX = $windowRect.Left + 300
-$captionY = $windowRect.Top + 18
+$windowDpi = [ZhiyuNativeTest]::GetDpiForWindow($nativeWindow)
+$captionY = $windowRect.Top + [int][Math]::Round(20 * $windowDpi / 96)
+$point = New-Object ZhiyuNativeTest+POINT
+$point.X = $captionX; $point.Y = $captionY
+if ([ZhiyuNativeTest]::GetAncestor([ZhiyuNativeTest]::WindowFromPoint($point), 2) -ne $nativeWindow) { throw 'The test window caption is covered; refusing to send mouse input elsewhere.' }
+$packedPoint = [IntPtr]::new([long](($captionY -band 0xffff) -shl 16) -bor ($captionX -band 0xffff))
+$captionHit = [ZhiyuNativeTest]::SendMessage($nativeWindow, 0x84, [IntPtr]::Zero, $packedPoint).ToInt64()
+if ($captionHit -ne 2) { throw "The test point is not a native caption (hit=$captionHit dpi=$windowDpi)." }
 [ZhiyuNativeTest]::Mouse($captionX, $captionY, 0)
 Start-Sleep -Milliseconds 100
 [ZhiyuNativeTest]::Mouse($captionX, $captionY, 2)
@@ -72,4 +87,6 @@ try {
     for ($step = 1; $step -le 8; $step++) { [ZhiyuNativeTest]::Mouse(($captionX + 10*$step), ($captionY + 6*$step), 0); Start-Sleep -Milliseconds 35 }
 } finally { [ZhiyuNativeTest]::Mouse(($captionX + 80), ($captionY + 48), 4) }
 Start-Sleep -Milliseconds 300
-[pscustomobject]@{ method='SendInput'; deltaX=80; deltaY=48 } | ConvertTo-Json -Compress
+$afterRect = New-Object ZhiyuNativeTest+RECT
+if (![ZhiyuNativeTest]::GetWindowRect($nativeWindow, [ref]$afterRect)) { throw 'GetWindowRect after drag failed.' }
+[pscustomobject]@{ method='SendInput'; dpi=$windowDpi; captionHit=$captionHit; foreground=([ZhiyuNativeTest]::GetForegroundWindow() -eq $nativeWindow); deltaX=($afterRect.Left-$windowRect.Left); deltaY=($afterRect.Top-$windowRect.Top) } | ConvertTo-Json -Compress
