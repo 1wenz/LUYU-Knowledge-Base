@@ -27,6 +27,12 @@ export async function withTestDatabase<T>(
 ): Promise<T> {
   const url = process.env.TEST_DATABASE_URL;
   if (!url) throw new Error("未执行：需要显式的专用 TEST_DATABASE_URL");
+  return withDatabaseUrl(url, work);
+}
+export async function withDatabaseUrl<T>(
+  url: string,
+  work: (pool: SqlPool, schema: string) => Promise<T>,
+): Promise<T> {
   const raw = new Pool({
     connectionString: url,
     max: 6,
