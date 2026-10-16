@@ -17,6 +17,7 @@ import {
 import { assertMutableRevision, DomainError } from "../../../../src/lib/domain/validation";
 import type { SqlConnection, SqlPool } from "./ports";
 import { inTransaction } from "./transactions";
+import { lockGenerations } from "./index-lock";
 
 type StoredDocument = Omit<Document, "createdAt" | "updatedAt" | "deletedAt"> & {
   createdAt: string | Date;
@@ -62,7 +63,16 @@ export function createPersistence(deps: {
     context: ServiceContext,
     work: (connection: SqlConnection) => Promise<T>,
     readOnly = false,
-  ) => inTransaction(deps.pool, context, work, readOnly);
+  ) =>
+    inTransaction(
+      deps.pool,
+      context,
+      async (connection) => {
+        if (!readOnly) await lockGenerations(connection);
+        return work(connection);
+      },
+      readOnly,
+    );
   const lockedDocument = async (connection: SqlConnection, id: string) => {
     const result = await connection.query<StoredDocument>(
       `SELECT ${columns} FROM documents WHERE id = $1 FOR UPDATE`,

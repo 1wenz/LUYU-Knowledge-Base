@@ -8,6 +8,7 @@
 
 - `src/lib/domain/`：共享 schema 驱动的标题/标签/正文/revision 校验、写入与查询一致的中文词项、字面通配符转义与短词计划、Markdown 结构优先的分块核心、RRF、provider 响应校验、引用白名单与上下文限额。
 - `electron/services/knowledge/database/`：SQL 端口、版本/checksum 迁移器、事务与脱敏错误、typed documents/collections 仓储。
+- `database/postgres.ts` 提供注入配置/密码的受限 pg 连接池；`indexing/writer.ts` 作为仓储 `onRevision`，同事务生成 token 分块、带权 FTS 和 pending job。`retrieval/postgres.ts` 提供两路参数化 SQL、统一过滤及来源复核。
 - `db/`：完整 generations/chunks/embeddings/jobs/imports 的版本 SQL、3072 halfvec 与 1536 vector HNSW 索引、默认三分类，以及初始化/备份/迁移/回滚说明。
 - `tests/domain/`：领域、迁移控制流、随机 schema 与仓储行为测试。`tests/integration/test-schema.ts` 提供只清理自己创建的随机 schema 的助手。
 - `electron/services/knowledge/retrieval/hybrid.ts`：`createHybridSearch(ports)`，关键词与 query embedding 并行、active profile 查询、稳定 RRF、最多 50 个 Rerank 候选、失败降级及来源 revision 前后复核。SQL 召回端口尚未接通。
@@ -17,7 +18,7 @@
 
 分类删除采用数据库 `ON DELETE SET NULL`。列表在只读 repeatable-read 事务中返回分页结果和总数；导入按 fingerprint 使用 advisory lock，并持久化每条来源到文档的映射。原型分类 UUID 映射见 [数据库说明](../db/README.md)，待 CTO/B/C 同步。
 
-分词仅用于中文 FTS，不能替代模型 tokenizer。分块与上下文核心强制注入 token 计数器；当前测试使用可控计数器验证算法，真实 large3 tokenizer 的中英文计数尚未验证。ICU 升级可能改变词边界，应重新评估 normalizer/index profile。
+分词仅用于中文 FTS，不能替代模型 tokenizer。生产分块使用 `js-tiktoken@1.0.21` 的 `cl100k_base`，已验证中英文已知 token 数、特殊标记作为普通文本、真实 token 上限与 overlap。ICU 升级可能改变词边界，应重新评估 normalizer/index profile。
 
 ## 阶段与验证
 
@@ -26,6 +27,7 @@
 3. M0 后的仓储阶段：新增 4/4 项针对输入规范化、参数化正文、并发 revision、删除状态、索引失败回滚和分类校验的离线行为测试通过；共享输入范围与公共类型直接复用 M0。
 4. `d41baec`：provider 未知 JSON 的结构、float32/nonzero 向量与精确 Rerank 数量校验；隔离 schema 在回调遗留事务时先回滚再清理，保留业务和清理错误。
 5. 混合检索与 Cohere 阶段：13/13 项专项测试通过，覆盖并行、过滤透传、active/目标维度不同、无 key、重复 index、降级、来源失效、候选上限、取消、超时及每次重试预算。
+6. PostgreSQL 召回与事务索引基线：真实 tokenizer、配置 fingerprint/缓存键、pg pool、同事务 chunks/FTS/jobs、参数化双路召回和来源复核。写入先取 generation 共享 advisory lock，再取文档行锁；切换流程必须按同样顺序取独占锁。
 
 M0 前只读使用原目录已有编译器，输出均写入本 worktree 忽略目录；M0 后使用本 worktree 独立的 node_modules、`.cache` 与 `.next`。离线迁移测试已移入 domain 组，避免被 `test:db` 当作真实数据库证据。
 
@@ -35,11 +37,13 @@ M0 前只读使用原目录已有编译器，输出均写入本 worktree 忽略�
 
 当前的离线 SQL 端口替身只验证控制流，不能证明 PostgreSQL 的真实回滚、FTS、索引或执行计划通过。
 
+SQL 召回阶段在本分支顺序通过 `npm run check` → `npm test`（112/112）→ `npm run build`，随后 `npm run test:db` 的 3 项真实集成测试通过（包含生产 pg adapter、迁移/CRUD/回滚/FTS/过滤/3072 索引计划）。测试仅使用 CTO 提供的隔离实例和本次生成的随机 schema；没有真实 provider 调用。平台组合根仍未注入 A 的完整服务。
+
 ## 尚需完成与给 B 的依赖请求
 
-M0 已提供公共契约与测试发现，尚未提供以下运行时依赖：`pg`、`@types/pg`、`@langchain/core`、`@langchain/openai`、`@langchain/textsplitters`、large3 兼容 tokenizer（建议 `js-tiktoken`，验证 `cl100k_base`）。按目录所有权由 B 统一审查、安装和锁定，A 不改 package/lockfile。要求兼容 Node >=22.12；ESM 依赖由 esbuild 打入 CJS 主进程，sandbox preload 不加载它们。
+已合入 CTO 发布的 `b7a9b77` 共享依赖/测试基线，版本见 [dependency-baseline.md](dependency-baseline.md)。本 worktree 独立 `npm ci` 成功；A 没有另行修改 package/lockfile。ESM 依赖由 esbuild 打入 CJS 主进程，sandbox preload 不加载它们。
 
-完整 `createKnowledgeService(deps)`、pg 连接池、真实 tokenizer、可恢复 embedding worker、SQL 召回、LangChain embedding/LLM adapters、generation 重建切换、知识助手与 live eval 尚未交付，不应在平台中把当前仓储与端口编排冒充完整服务。B 还需提供迁移 SQL 的打包资源或文本 loader。
+完整 `createKnowledgeService(deps)`、可恢复 embedding worker、LangChain embedding/LLM adapters、generation 重建切换、知识助手与 live eval 尚未交付，不应在平台中把当前仓储与端口编排冒充完整服务。B 还需提供迁移 SQL 的打包资源或文本 loader。
 
 真实数据库验收需要明确的专用 `TEST_DATABASE_URL`、PostgreSQL >=17、public schema 的 pgvector >=0.8 和 pg_trgm；包括 CRUD/并发/导入/中文 FTS/短词/3072 索引 EXPLAIN/恢复任务/索引切换。应用服务不读取 process.env 或磁盘设置/秘密。
 

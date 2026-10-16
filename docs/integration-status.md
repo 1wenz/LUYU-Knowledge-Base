@@ -2,6 +2,12 @@
 
 ## 最新协调（2026-10-16）
 
+C2 `e3fc75c` 已合入 `8e574bb`：main check、114 项离线测试、build、23 项 Edge 浏览器测试通过。正式工作区使用契约 client，覆盖文档操作、导入去重、冲突保留草稿、来源定位和查询竞态；助手/设置等待 C3/C4。
+
+A 的 `a00270d` 已完成整合验证：check、117 项离线测试、8 项真实数据库测试、build 通过。真实测试覆盖生产 pg adapter、立即可搜索的中文分块、3072 halfvec ANN/float32 重排、过滤/删除和生产 SQL 的 HNSW 执行计划。小样本强制关闭顺序扫描仅证明索引可用，不作为性能/召回率结论。embedding worker、重建和 service factory 等待 A 后续阶段。
+
+集成负责人在独立 worktree 准备真实桌面到 PostgreSQL 的端到端验收：创建自己拥有的新测试数据库和隔离 userData，使用真实 preload/IPC/UI 保存、检索、来源、恢复及重启。该用例将等待生产 service factory 注入后运行，并复用于最终 Windows 目录包；当前不计为通过。
+
 A 的 `f5b50af`、`d41baec` 已审查并集成：事务仓储、公共 schema 复用和 provider 原始 JSON 校验。主工作区顺序执行 check、57 项默认测试、build 均通过。后续 `6219623` 的混合检索/Cohere 编排合入 `10ce335`，当前离线测试 109 项通过，专项 Electron 类型和 ESLint 检查通过。
 
 真实仓储验收 `tests/acceptance/persistence-db.test.ts` 已在隔离 PostgreSQL 上通过 5 项（含父测试），覆盖迁移幂等、并发 revision、正文参数化、收藏/软删除/恢复、分类关联、并发重复导入、派生写入失败全事务回滚和新连接持久化。已加入 `npm run test:db` 的发现目录；仅使用显式专用连接和随机 schema。SQL 级索引计划与仓储证据互补，worker/generation/provider 主链路仍待 A 后续提交。
