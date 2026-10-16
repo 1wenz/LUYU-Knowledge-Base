@@ -19,6 +19,7 @@ const options = {
   format: "cjs",
   target: "node22",
   external: ["electron"],
+  loader: { ".sql": "text" },
   alias: {
     "pg-native": fileURLToPath(
       new URL("../electron/platform/pg-native-disabled.ts", import.meta.url),
