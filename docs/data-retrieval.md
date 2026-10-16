@@ -57,7 +57,73 @@ generation 阶段新增 `indexing/manager.ts`：旧 active 持续查询，短事
 
 工厂阶段顺序通过 `npm run check` → `npm test`（128/128）→ `npm run build` → `npm run test:db`（12/12）。新增两项离线生命周期测试和两项真实 PostgreSQL 服务测试，覆盖即时中文 FTS→后台 embedding→语义改写→Cohere 顺序→完整上下文引用→编辑 revision→1536 重建，以及只读探测、连接/密码改变、dispose。HTTP 为合成 mock；这证明服务编排与实际 SDK/SQL 接通，尚不证明 IPC/UI 或真实模型质量。现有 build 入口未引用本工厂，B 接入后仍需完整 bundle/桌面/Windows 包验收。
 
-live eval 语料、独立预算 runner 与报告是下一阶段剩余交付。
+## 合成质量集与 live eval
+
+`tests/evals/fixtures.ts` 提供 24 份完全虚构的中英文资料，`tests/evals/fixtures.ts` 的 30 题由 15 个主题各生成中英文一题，标注正相关文档。`tests/evals/metrics.ts` 计算去重后的 Recall@20、nDCG@8 和 MRR；runner 同时报告关键词、向量、RRF、Cohere 重排四个结果，并记录 embedding、查询、重排、可选回答的延迟、维度和 provider 用量摘要。用量只保留 token/search unit/cost 数字，不保留响应正文、DSN 或 key。
+
+默认 live runner 只评前 2 题：24 份语料分成 2 个 embedding 请求，2 个问题共 1 个查询 embedding 请求，2 个 Rerank 请求，总预算默认 6，留出一次重试空间。要完整评估 30 题，需要明确提高预算（至少 34），并由调用方确认费用。评估只使用显式 `EVAL_DATABASE_URL` 的专用库/schema；runner 会使用自己的随机 schema，provider key 只在测试进程内存中存在。
+
+执行前加载本地运行时并显式设置 `RUN_LIVE_EVAL=1`、`OPENROUTER_API_KEY`、`COHERE_API_KEY`、`EVAL_DATABASE_URL`、`EVAL_REQUEST_BUDGET`；可选 `EVAL_QUESTION_COUNT`、`EVAL_EMBEDDING_DIMENSIONS`、`EVAL_MAX_RETRIES`、`EVAL_CHAT_MODEL`。默认的常规测试不会联网。完整合成 HTTP + 真实 SQL runner 验证已通过：`npm test` 包含 7 项 runner 契约测试，`npm run test:db` 包含 30 题、34 次合成 provider 请求的真实 PostgreSQL 用例。没有 provider 凭据时不能把未执行 live 当作质量结果；实际 paid live 仍未执行。
+
+评估与完整服务 bundle 阶段已顺序通过 `npm run check` → `npm test`（141/141）→ `npm run build` → `npm run test:db`（18/18，含平台 acceptance 子测试）。A 的完整服务 standalone CJS 回归实际运行了工厂、免费模型鉴权、默认迁移资源读取和延迟连接，并确认只有 Node 内建外部依赖。常规主进程入口尚未注入 A 服务，桌面端到端接线仍由 B 验收。
+
+```powershell
+. .\scripts\Use-LocalRuntime.ps1
+$env:RUN_LIVE_EVAL = '1'
+$env:OPENROUTER_API_KEY = '<仅当前 PowerShell 会话>'
+$env:COHERE_API_KEY = '<仅当前 PowerShell 会话>'
+$env:EVAL_DATABASE_URL = 'postgresql://<专用用户>:<专用密码>@127.0.0.1:55437/<专用数据库>'
+$env:EVAL_REQUEST_BUDGET = '34'
+$env:EVAL_QUESTION_COUNT = '30'
+npm run eval:live
+```
+
+可选回答会额外做一次模型目录请求和一次聊天请求，均计入预算。若设置 `EVAL_CHAT_MODEL` 且仍使用 6 次预算，应将 `EVAL_QUESTION_COUNT=1`；30 题加一次回答至少需要 36 次预算。只提供模型目录确认的能力，未选择模型时完全不调用聊天。报告中的用量字段为 null 表示 provider 未返回，不用估算值冒充真实计费。
+
+报告写到忽略的 `.cache/eval-report.json`；命令输出和报告仅包含合成语料统计及脱敏 provider 用量。`EVAL_DATABASE_URL` 不能指向业务库，也不能提交到仓库。
+
+## 给 B/C 的错误与展示样例
+
+服务抛出 `DomainError`，B 映射 `ApiResult`；`DATABASE_UNAVAILABLE` 表示连接/事务失败，`SCHEMA_MISMATCH` 表示迁移/扩展/provider 数据不兼容，`CONFLICT` 表示 revision 或操作状态已变化。`CONFIG_REQUIRED`、`PROVIDER_AUTH`、`PROVIDER_LIMIT`、`MODEL_UNSUPPORTED` 区分配置、凭据、额度和模型问题。取消/总超时是失败终态，不应显示降级成功；单路检索或 Rerank 故障通过成功 DTO 的 warnings 解释。
+
+以下片段可直接在 C 的 mock client 中构造完整 SearchResponse。`hit` 为一次真实返回的当前来源，不能把示例 UUID 当作可跳转的业务笔记。
+
+```ts
+const base: SearchResponse = {
+  requestId: "10000000-0000-4000-8000-000000000001",
+  generationId: "10000000-0000-4000-8000-000000000002",
+  mode: "hybrid-rerank",
+  hits: [hit],
+  warnings: [],
+  timingsMs: { keyword: 8, embedding: 120, vector: 10, fusion: 1, rerank: 80, total: 215 },
+};
+const empty: SearchResponse = { ...base, hits: [] };
+const keywordOnly: SearchResponse = {
+  ...base,
+  mode: "keyword",
+  warnings: [
+    {
+      stage: "embedding",
+      reason: "not-configured",
+      message: "请配置 OpenRouter API key，当前使用关键词检索",
+    },
+  ],
+};
+const rerankFailed: SearchResponse = {
+  ...base,
+  mode: "hybrid",
+  warnings: [{ stage: "rerank", reason: "failed", message: "重排暂时不可用，当前显示 RRF 结果" }],
+};
+const indexing: SearchResponse = {
+  ...base,
+  mode: "keyword",
+  warnings: [
+    { stage: "vector", reason: "index-pending", message: "向量索引正在建立，当前使用关键词检索" },
+  ],
+};
+```
+
+展示必须采用相应 mode 下的实际 scores/timings，关键词降级示例不应保留虚构 rerank 分数。列表数量是片段数；来源跳转核对 documentId、documentRevision、startLine/endLine，不能按截断 snippet 反查全文。索引状态通过 `index.status` 的 pending/failed/requiresReindex 展示，不能因有关键词结果就标为向量已就绪。
 
 真实数据库验收需要明确的专用 `TEST_DATABASE_URL`、PostgreSQL >=17、public schema 的 pgvector >=0.8 和 pg_trgm；包括 CRUD/并发/导入/中文 FTS/短词/3072 索引 EXPLAIN/恢复任务/索引切换。应用服务不读取 process.env 或磁盘设置/秘密。
 
