@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { desktopFixture } from "./fixtures";
 import type { KnowledgeClient } from "../../src/lib/contracts";
@@ -27,6 +27,8 @@ test("真实 preload 固定 API、参数攻击和未接服务状态", async () =
       };
     });
     expect(results.info.ok && results.info.value.apiVersion).toBe(1);
+    if (results.info.ok)
+      await writeFile(".cache/desktop-runtime.json", JSON.stringify(results.info.value, null, 2));
     expect(results.settings.ok && results.settings.value.settings.database.sslMode).toBe("disable");
     expect(!results.badUrl.ok && results.badUrl.error.code).toBe("INVALID_INPUT");
     expect(!results.badEnum.ok && results.badEnum.error.code).toBe("INVALID_INPUT");
