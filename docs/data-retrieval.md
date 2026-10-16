@@ -43,11 +43,13 @@ SQL 召回阶段在本分支顺序通过 `npm run check` → `npm test`（112/11
 
 embedding/worker 阶段顺序通过 `npm run check` → `npm test`（116/116）→ `npm run build`；真实数据库组 7/7 通过，新增缓存复用、修改/删除期间拒绝旧响应、部分成功后重启补缺、过期租约恢复、取消与维度错误的持久化验证。OpenRouter HTTP 全部为合成 mock；尚无真实路由/付费用量结论。
 
+generation 阶段新增 `indexing/manager.ts`：旧 active 持续查询，短事务补齐 building 当前 revision，独占 catalog advisory lock 内核对所有文档/任务/向量后原子切换；失败或取消保留旧 active。后台与前台重建共享 worker，每实例最多两个在途任务。`recover` 补齐重启遗留 building，并在就绪后完成切换。新增三项真实数据库测试验证 3072→1536、重建中编辑、取消/认证失败和重启恢复，全部通过。本工作区随后顺序 check、128 项离线测试、build 与 12 项真实数据库测试通过；后两组的新增助手/工厂文件在各自后续阶段提交，网络均为合成替身。
+
 ## 尚需完成与给 B 的依赖请求
 
 已合入 CTO 发布的 `b7a9b77` 共享依赖/测试基线，版本见 [dependency-baseline.md](dependency-baseline.md)。本 worktree 独立 `npm ci` 成功；A 没有另行修改 package/lockfile。ESM 依赖由 esbuild 打入 CJS 主进程，sandbox preload 不加载它们。
 
-完整 `createKnowledgeService(deps)`、LangChain LLM adapter、generation 重建切换、知识助手与 live eval 尚未交付，不应在平台中把当前仓储与端口编排冒充完整服务。B 还需提供迁移 SQL 的打包资源或文本 loader；资源列表现在包括 `003_embedding_cache.sql`。
+完整 `createKnowledgeService(deps)`、LangChain LLM adapter、知识助手与 live eval 尚未交付。generation 重建模块已提供；平台接入仍需后续工厂阶段。B 还需提供迁移 SQL 的打包资源或文本 loader；资源列表现在包括 `003_embedding_cache.sql`。
 
 真实数据库验收需要明确的专用 `TEST_DATABASE_URL`、PostgreSQL >=17、public schema 的 pgvector >=0.8 和 pg_trgm；包括 CRUD/并发/导入/中文 FTS/短词/3072 索引 EXPLAIN/恢复任务/索引切换。应用服务不读取 process.env 或磁盘设置/秘密。
 

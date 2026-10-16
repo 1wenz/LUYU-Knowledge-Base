@@ -227,70 +227,81 @@ export function createEmbeddingWorker(deps: {
       );
     });
   };
+  const runOnce = async (context: ServiceContext): Promise<boolean> => {
+    checkCancelled(context.signal);
+    const key = await deps.readSecret("openrouter-api-key");
+    if (!key) return false;
+    const job = await claim(context);
+    if (!job) return false;
+    try {
+      const loaded = await load(job, context);
+      if (!loaded) {
+        await finish(job, context);
+        return true;
+      }
+      const { profile, pending } = loaded;
+      let next = 0;
+      while (next < pending.length) {
+        checkCancelled(context.signal);
+        const batch: PendingChunk[] = [];
+        let tokens = 0;
+        while (next < pending.length && batch.length < maxBatch) {
+          const chunk = pending[next];
+          if (chunk.tokenCount > maxBatchTokens)
+            throw new DomainError("INVALID_INPUT", "片段超过 embedding token 预算");
+          if (batch.length && tokens + chunk.tokenCount > maxBatchTokens) break;
+          batch.push(chunk);
+          tokens += chunk.tokenCount;
+          next++;
+        }
+        const uncached = batch.filter((chunk) => !chunk.embedding);
+        if (uncached.length) {
+          const raw = await deps.embed(
+            uncached.map((chunk) => chunk.content),
+            profile,
+            key,
+            context.signal,
+          );
+          const vectors = validateEmbeddingBatch(
+            { data: raw.map((embedding, index) => ({ index, embedding })) },
+            uncached.length,
+            profile.dimensions,
+          );
+          uncached.forEach((chunk, index) => {
+            chunk.embedding = vectors[index];
+          });
+        }
+        if (!(await save(job, profile, batch, context))) return true;
+      }
+      await finish(job, context);
+      deps.logger.info("index.job-completed", { count: pending.length });
+    } catch (error) {
+      const known = context.signal.aborted
+        ? new DomainError("CANCELLED", "索引已取消")
+        : error instanceof DomainError
+          ? error
+          : new DomainError("PROVIDER_UNAVAILABLE", "索引服务暂时不可用");
+      try {
+        await fail(job, known);
+      } catch {
+        deps.logger.error("index.job-release-failed", { code: "DATABASE_UNAVAILABLE" });
+      }
+      deps.logger.warn("index.job-failed", { code: known.code });
+      if (known.code === "CANCELLED") throw known;
+    }
+    return true;
+  };
+  let inFlight = 0;
   return {
     async runOnce(context: ServiceContext): Promise<boolean> {
       checkCancelled(context.signal);
-      const key = await deps.readSecret("openrouter-api-key");
-      if (!key) return false;
-      const job = await claim(context);
-      if (!job) return false;
+      if (inFlight >= 2) return false;
+      inFlight++;
       try {
-        const loaded = await load(job, context);
-        if (!loaded) {
-          await finish(job, context);
-          return true;
-        }
-        const { profile, pending } = loaded;
-        let next = 0;
-        while (next < pending.length) {
-          checkCancelled(context.signal);
-          const batch: PendingChunk[] = [];
-          let tokens = 0;
-          while (next < pending.length && batch.length < maxBatch) {
-            const chunk = pending[next];
-            if (chunk.tokenCount > maxBatchTokens)
-              throw new DomainError("INVALID_INPUT", "片段超过 embedding token 预算");
-            if (batch.length && tokens + chunk.tokenCount > maxBatchTokens) break;
-            batch.push(chunk);
-            tokens += chunk.tokenCount;
-            next++;
-          }
-          const uncached = batch.filter((chunk) => !chunk.embedding);
-          if (uncached.length) {
-            const raw = await deps.embed(
-              uncached.map((chunk) => chunk.content),
-              profile,
-              key,
-              context.signal,
-            );
-            const vectors = validateEmbeddingBatch(
-              { data: raw.map((embedding, index) => ({ index, embedding })) },
-              uncached.length,
-              profile.dimensions,
-            );
-            uncached.forEach((chunk, index) => {
-              chunk.embedding = vectors[index];
-            });
-          }
-          if (!(await save(job, profile, batch, context))) return true;
-        }
-        await finish(job, context);
-        deps.logger.info("index.job-completed", { count: pending.length });
-      } catch (error) {
-        const known = context.signal.aborted
-          ? new DomainError("CANCELLED", "索引已取消")
-          : error instanceof DomainError
-            ? error
-            : new DomainError("PROVIDER_UNAVAILABLE", "索引服务暂时不可用");
-        try {
-          await fail(job, known);
-        } catch {
-          deps.logger.error("index.job-release-failed", { code: "DATABASE_UNAVAILABLE" });
-        }
-        deps.logger.warn("index.job-failed", { code: known.code });
-        if (known.code === "CANCELLED") throw known;
+        return await runOnce(context);
+      } finally {
+        inFlight--;
       }
-      return true;
     },
   };
 }
