@@ -376,18 +376,29 @@ export function createKnowledgeService(
         return;
       }
       const key = await deps.readSecret("openrouter-api-key");
-      if (key && key !== current.embeddingKey) {
-        current.embeddingKey = key;
-        await current.ready;
-        await inTransaction(
-          current.pool!,
-          { ownerId: "knowledge-settings", signal: current.controller.signal },
-          async (connection) => {
-            await connection.query(`UPDATE index_jobs j SET state = 'pending', attempts = 0, error_code = NULL, next_retry_at = now(), updated_at = now()
+      if (key !== current.embeddingKey) {
+        // Also cancel background work, which is outside the platform's operation registry.
+        if (slot === current) slot = undefined;
+        await stop(current);
+        if (!key) return;
+        try {
+          const fresh = acquire();
+          await fresh.ready;
+          await inTransaction(
+            fresh.pool!,
+            { ownerId: "knowledge-settings", signal: fresh.controller.signal },
+            async (connection) => {
+              await connection.query(`UPDATE index_jobs j SET state = 'pending', attempts = 0, error_code = NULL, next_retry_at = now(), updated_at = now()
             FROM documents d, index_generations g WHERE j.document_id = d.id AND j.generation_id = g.id
             AND j.state = 'failed' AND d.revision = j.revision AND d.deleted_at IS NULL AND g.state IN ('active', 'building')`);
-          },
-        );
+            },
+          );
+        } catch (error) {
+          // A stored credential remains valid configuration while the database is offline.
+          deps.logger.warn("knowledge.credentials-resume-failed", {
+            code: error instanceof DomainError ? error.code : "INTERNAL",
+          });
+        }
       }
     },
     dispose() {
