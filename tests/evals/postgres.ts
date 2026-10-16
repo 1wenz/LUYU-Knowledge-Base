@@ -93,7 +93,7 @@ export function createEvaluationStore(pool: SqlPool, dimensions: 1536 | 3072): E
     async recall({ question, embedding }, context) {
       const profile = await recall.activeProfile(context);
       if (!profile?.vectorReady) throw new EvaluationFailure("STORE_FAILED");
-      const input = { query: question.query, profile, limit: 40 };
+      const input = { query: question.query, filters: question.filters, profile, limit: 40 };
       const keywordStart = performance.now();
       const keyword = await recall.keyword(input, context);
       const keywordMs = performance.now() - keywordStart;

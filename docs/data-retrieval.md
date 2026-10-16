@@ -59,13 +59,15 @@ generation 阶段新增 `indexing/manager.ts`：旧 active 持续查询，短事
 
 ## 合成质量集与 live eval
 
-`tests/evals/fixtures.ts` 提供 24 份完全虚构的中英文资料，`tests/evals/fixtures.ts` 的 30 题由 15 个主题各生成中英文一题，标注正相关文档。`tests/evals/metrics.ts` 计算去重后的 Recall@20、nDCG@8 和 MRR；runner 同时报告关键词、向量、RRF、Cohere 重排四个结果，并记录 embedding、查询、重排、可选回答的延迟、维度和 provider 用量摘要。用量只保留 token/search unit/cost 数字，不保留响应正文、DSN 或 key。
+`tests/evals/fixtures.ts` 提供 24 份完全虚构的中英文资料和 30 题（中英文各 15 题），覆盖精确词、中文短词、语义改写、标签过滤和两道无答案题。28 道正相关题用于去重后的 Recall@20、nDCG@8 和 MRR；无答案题的指标为 null，单独报告各基线返回候选的题数，避免把“没有标注”误算成 0 或 1。runner 同时报告关键词、向量、RRF、Cohere 重排四个结果，并记录 embedding、查询、重排、可选回答的延迟、维度和 provider 用量摘要。用量只保留 token/search unit/cost 数字，不保留响应正文、DSN 或 key。
 
 默认 live runner 只评前 2 题：24 份语料分成 2 个 embedding 请求，2 个问题共 1 个查询 embedding 请求，2 个 Rerank 请求，总预算默认 6，留出一次重试空间。要完整评估 30 题，需要明确提高预算（至少 34），并由调用方确认费用。评估只使用显式 `EVAL_DATABASE_URL` 的专用库/schema；runner 会使用自己的随机 schema，provider key 只在测试进程内存中存在。
 
-执行前加载本地运行时并显式设置 `RUN_LIVE_EVAL=1`、`OPENROUTER_API_KEY`、`COHERE_API_KEY`、`EVAL_DATABASE_URL`、`EVAL_REQUEST_BUDGET`；可选 `EVAL_QUESTION_COUNT`、`EVAL_EMBEDDING_DIMENSIONS`、`EVAL_MAX_RETRIES`、`EVAL_CHAT_MODEL`。默认的常规测试不会联网。完整合成 HTTP + 真实 SQL runner 验证已通过：`npm test` 包含 7 项 runner 契约测试，`npm run test:db` 包含 30 题、34 次合成 provider 请求的真实 PostgreSQL 用例。没有 provider 凭据时不能把未执行 live 当作质量结果；实际 paid live 仍未执行。
+执行前加载本地运行时并显式设置 `RUN_LIVE_EVAL=1`、`OPENROUTER_API_KEY`、`COHERE_API_KEY`、`EVAL_DATABASE_URL`、`EVAL_REQUEST_BUDGET`；可选 `EVAL_QUESTION_COUNT`、`EVAL_EMBEDDING_DIMENSIONS`、`EVAL_MAX_RETRIES`、`EVAL_CHAT_MODEL`。默认的常规测试不会联网。完整合成 HTTP + 真实 SQL runner 验证已通过：`npm test` 包含 7 项 runner 契约测试，`npm run test:db` 包含 30 题、33 次合成 provider 请求的真实 PostgreSQL 用例（过滤无命中题省略 Rerank）。没有 provider 凭据时不能把未执行 live 当作质量结果；实际 paid live 仍未执行。
 
 评估与完整服务 bundle 阶段已顺序通过 `npm run check` → `npm test`（141/141）→ `npm run build` → `npm run test:db`（18/18，含平台 acceptance 子测试）。A 的完整服务 standalone CJS 回归实际运行了工厂、免费模型鉴权、默认迁移资源读取和延迟连接，并确认只有 Node 内建外部依赖。常规主进程入口尚未注入 A 服务，桌面端到端接线仍由 B 验收。
+
+补齐短词、过滤和无答案统计后，再次顺序通过同样四组门禁（141/141 离线、18/18 真实数据库）。缺配置的 `npm run eval:live` 实际退出 2，未执行 live；无私有正文或真实 provider key 进入本次测试。
 
 ```powershell
 . .\scripts\Use-LocalRuntime.ps1
@@ -82,13 +84,31 @@ npm run eval:live
 
 报告写到忽略的 `.cache/eval-report.json`；命令输出和报告仅包含合成语料统计及脱敏 provider 用量。`EVAL_DATABASE_URL` 不能指向业务库，也不能提交到仓库。
 
+该语料用于可重复的最小评估，24 份文档不足以证明大规模 ANN 性能或通用质量；Recall@20 容易接近上限，应结合 nDCG/MRR 与逐题名次阅读。未设语义相似度拒答阈值的向量召回仍可能为无答案问题返回邻居；报告明确暴露此现象，不能把有候选等同于有回答证据。
+
 ## 给 B/C 的错误与展示样例
 
 服务抛出 `DomainError`，B 映射 `ApiResult`；`DATABASE_UNAVAILABLE` 表示连接/事务失败，`SCHEMA_MISMATCH` 表示迁移/扩展/provider 数据不兼容，`CONFLICT` 表示 revision 或操作状态已变化。`CONFIG_REQUIRED`、`PROVIDER_AUTH`、`PROVIDER_LIMIT`、`MODEL_UNSUPPORTED` 区分配置、凭据、额度和模型问题。取消/总超时是失败终态，不应显示降级成功；单路检索或 Rerank 故障通过成功 DTO 的 warnings 解释。
 
-以下片段可直接在 C 的 mock client 中构造完整 SearchResponse。`hit` 为一次真实返回的当前来源，不能把示例 UUID 当作可跳转的业务笔记。
+以下为合成展示 DTO，C 可用于显式 mock client；示例 UUID 不能作为真实业务来源。
 
 ```ts
+const hit: SearchHit = {
+  chunkId: "10000000-0000-4000-8000-000000000003",
+  documentId: "10000000-0000-4000-8000-000000000004",
+  documentRevision: 1,
+  title: "合成来源笔记",
+  snippet: "合成证据文本。",
+  startLine: 1,
+  endLine: 1,
+  updatedAt: "2026-10-16T00:00:00.000Z",
+  scores: { keywordRank: 1, vectorRank: 1, vectorCosine: 0.9, rrf: 1 / 61, rerank: 0.95 },
+};
+const rrfHit = {
+  ...hit,
+  scores: { keywordRank: 1, vectorRank: 1, vectorCosine: 0.9, rrf: 1 / 61 },
+};
+const keywordHit = { ...hit, scores: { keywordRank: 1, rrf: 0.5 / 61 } };
 const base: SearchResponse = {
   requestId: "10000000-0000-4000-8000-000000000001",
   generationId: "10000000-0000-4000-8000-000000000002",
@@ -97,10 +117,17 @@ const base: SearchResponse = {
   warnings: [],
   timingsMs: { keyword: 8, embedding: 120, vector: 10, fusion: 1, rerank: 80, total: 215 },
 };
-const empty: SearchResponse = { ...base, hits: [] };
+const empty: SearchResponse = {
+  ...base,
+  mode: "hybrid",
+  hits: [],
+  timingsMs: { keyword: 8, embedding: 120, vector: 10, fusion: 1, total: 135 },
+};
 const keywordOnly: SearchResponse = {
   ...base,
   mode: "keyword",
+  hits: [keywordHit],
+  timingsMs: { keyword: 8, fusion: 1, total: 10 },
   warnings: [
     {
       stage: "embedding",
@@ -112,11 +139,14 @@ const keywordOnly: SearchResponse = {
 const rerankFailed: SearchResponse = {
   ...base,
   mode: "hybrid",
+  hits: [rrfHit],
   warnings: [{ stage: "rerank", reason: "failed", message: "重排暂时不可用，当前显示 RRF 结果" }],
 };
 const indexing: SearchResponse = {
   ...base,
   mode: "keyword",
+  hits: [keywordHit],
+  timingsMs: { keyword: 8, fusion: 1, total: 10 },
   warnings: [
     { stage: "vector", reason: "index-pending", message: "向量索引正在建立，当前使用关键词检索" },
   ],
@@ -124,6 +154,10 @@ const indexing: SearchResponse = {
 ```
 
 展示必须采用相应 mode 下的实际 scores/timings，关键词降级示例不应保留虚构 rerank 分数。列表数量是片段数；来源跳转核对 documentId、documentRevision、startLine/endLine，不能按截断 snippet 反查全文。索引状态通过 `index.status` 的 pending/failed/requiresReindex 展示，不能因有关键词结果就标为向量已就绪。
+
+## 桌面回归的独立失败记录
+
+在消费 `3eaae12` 的 A 分支运行 `npm run test:desktop`，4 项通过、1 项失败。`tests/desktop/windows.spec.ts:45` 的 SendInput 标题栏拖动前后 bounds 均为 `{x:0,y:0,width:1280,height:752}`；单独用 Playwright `--grep 原生标题栏` 复测仍为位移 0。证据在忽略的 `.cache/desktop-drag.json`、`.cache/agent-a-desktop.log`、`.cache/agent-a-drag-repeat.log` 和 `test-results/`。这项失败尚未定位，不计为通过；窗口实现/原生输入测试由 B 继续处理。A 的服务、真实 SQL 与独立 bundle 校验已通过，当前主分支后续的实际 IPC 接线不以本分支旧入口回归替代验收。
 
 真实数据库验收需要明确的专用 `TEST_DATABASE_URL`、PostgreSQL >=17、public schema 的 pgvector >=0.8 和 pg_trgm；包括 CRUD/并发/导入/中文 FTS/短词/3072 索引 EXPLAIN/恢复任务/索引切换。应用服务不读取 process.env 或磁盘设置/秘密。
 

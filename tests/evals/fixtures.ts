@@ -1,9 +1,12 @@
+import type { SearchFilters } from "../../src/lib/contracts";
 export type EvalDocument = { key: string; title: string; content: string; tags: string[] };
 export type EvalQuestion = {
   id: string;
   language: "zh" | "en";
   query: string;
   relevant: Record<string, number>;
+  kind: "exact" | "short" | "paraphrase" | "filtered" | "no-answer";
+  filters?: SearchFilters;
 };
 
 // Entirely fictional policies and products. Never import a user's notes into this fixture.
@@ -257,11 +260,30 @@ export const questions: EvalQuestion[] = pairs.flatMap(([key, zh, en], index) =>
     language: "zh" as const,
     query: zh,
     relevant: { [key]: 3 },
+    kind: "exact" as const,
   },
   {
     id: `q${String(index * 2 + 2).padStart(2, "0")}`,
     language: "en" as const,
     query: en,
     relevant: { [key]: 3 },
+    kind: "paraphrase" as const,
   },
 ]);
+
+questions[2] = { ...questions[2], query: "备份", kind: "short" };
+questions[13] = { ...questions[13], kind: "filtered", filters: { tags: ["检索"] } };
+questions[16] = { ...questions[16], kind: "filtered", filters: { tags: ["索引"] } };
+questions[26] = {
+  ...questions[26],
+  query: "虚构海蓝研究站明天几点发生地震？",
+  kind: "no-answer",
+  relevant: {},
+};
+questions[29] = {
+  ...questions[29],
+  query: "Which policy remains under a tag that no synthetic document has?",
+  kind: "no-answer",
+  filters: { tags: ["no-matching-synthetic-tag"] },
+  relevant: {},
+};
