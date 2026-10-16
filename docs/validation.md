@@ -110,3 +110,9 @@ CTO 合并时的具体接线顺序：
 主进程构建增加 SQL text loader，`electron/platform/migration-resources.ts` 显式导出三份已发布迁移。后续由组合根把 `knowledgeMigrations` 传给 A 的服务工厂；数据库服务不依赖源码目录或 renderer 提供 SQL。生产服务尚未注入，此阶段不宣称桌面已能连接真实知识库。
 
 已复现缺少 loader 时三份 SQL 均被构建器拒绝。修复后顺序 check、121 项离线测试和 build 通过；真实平台桌面组 3 项通过。bundle 回归在系统临时目录执行实际生成的 CJS，并逐一核对其迁移版本和规范化 SHA-256 与仓库 SQL 一致；同时保留 pg/LangChain/tokenizer 和严格外部依赖校验。最终安装包还须通过真实桌面数据库验收。
+
+## 集成补充：Fluid 桌面回归
+
+工作区与设置界面合并后，桌面 smoke 使用“本地知识工作区”的实际入口；原生拖动测试改为点击设置并编辑主机草稿，数据库未配置时也能验证控件。测试夹具支持仅作用于被测进程的 `ZHIYU_TEST_SCALE_FACTOR=1.25`，并断言实际 devicePixelRatio，不修改系统显示设置。
+
+独立集成 worktree 顺序 check、121 项离线测试、build 通过；设置上述缩放后，5 项真实桌面检查通过，包括 SendInput 拖动、最大化后的按钮/输入、窗口图标与退出进程清理。真实数据库端到端用例仍是未提交准备稿，本次因没有配置其 TEST_DATABASE_URL 跳过，不能计为通过。强制 Chromium 设备缩放不等同于已验证所有 Windows 系统 DPI 设置。

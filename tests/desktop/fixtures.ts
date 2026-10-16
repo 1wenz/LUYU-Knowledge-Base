@@ -16,8 +16,13 @@ export async function desktopFixture(existingUserData?: string) {
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.ELECTRON_RENDERER_URL;
   const executablePath = process.env.ZHIYU_PACKAGE_EXE;
+  const scale = process.env.ZHIYU_TEST_SCALE_FACTOR;
+  if (scale && !["1", "1.25"].includes(scale)) throw new Error("桌面测试缩放参数无效。");
   const application = await electron.launch({
-    args: executablePath ? [] : [resolve(".")],
+    args: [
+      ...(scale ? [`--force-device-scale-factor=${scale}`] : []),
+      ...(executablePath ? [] : [resolve(".")]),
+    ],
     executablePath,
     env,
     cwd: resolve("."),
