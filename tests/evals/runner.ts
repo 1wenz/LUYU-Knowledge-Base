@@ -121,8 +121,10 @@ type Baseline = "keyword" | "vector" | "rrf" | "reranked";
 type QuestionResult = {
   id: string;
   language: "zh" | "en";
+  kind: EvalQuestion["kind"];
+  expectedNoAnswer: boolean;
   rankings: Record<Baseline, string[]>;
-  metrics: Record<Baseline, QualityMetrics>;
+  metrics: Record<Baseline, QualityMetrics | null>;
   timingsMs: { keyword: number; vector: number; fusion: number; rerank: number };
 };
 export type EvaluationReport = {
@@ -130,6 +132,8 @@ export type EvaluationReport = {
   dimensions: 1536 | 3072;
   availableQuestions: number;
   evaluatedQuestions: number;
+  positiveQuestions: number;
+  noAnswer: { questions: number; queriesWithCandidates: Record<Baseline, number> };
   corpusDocuments: number;
   corpusChunks: number;
   requestBudget: number;
@@ -379,15 +383,20 @@ export async function runEvaluation(
         rrf: ranking(fused),
         reranked: ranking(ranked),
       };
+      const expectedNoAnswer = !Object.values(question.relevant).some((grade) => grade > 0);
+      const quality = (order: string[]) =>
+        expectedNoAnswer ? null : qualityMetrics(order, question.relevant);
       rows.push({
         id: question.id,
         language: question.language,
+        kind: question.kind,
+        expectedNoAnswer,
         rankings,
         metrics: {
-          keyword: qualityMetrics(rankings.keyword, question.relevant),
-          vector: qualityMetrics(rankings.vector, question.relevant),
-          rrf: qualityMetrics(rankings.rrf, question.relevant),
-          reranked: qualityMetrics(rankings.reranked, question.relevant),
+          keyword: quality(rankings.keyword),
+          vector: quality(rankings.vector),
+          rrf: quality(rankings.rrf),
+          reranked: quality(rankings.reranked),
         },
         timingsMs: { ...recalled.timingsMs, fusion: fusionMs, rerank: reranked.ms },
       });
@@ -444,11 +453,30 @@ export async function runEvaluation(
       };
     }
     await scope.wait(() => Promise.all(telemetry));
+    const mean = (baseline: Baseline) =>
+      meanQuality(
+        rows
+          .map((row) => row.metrics[baseline])
+          .filter((value): value is QualityMetrics => value !== null),
+      );
+    const negatives = rows.filter((row) => row.expectedNoAnswer);
+    const withCandidates = (baseline: Baseline) =>
+      negatives.filter((row) => row.rankings[baseline].length > 0).length;
     return {
       generatedAt: (deps.now ?? (() => new Date()))().toISOString(),
       dimensions: config.dimensions,
       availableQuestions: questions.length,
       evaluatedQuestions: rows.length,
+      positiveQuestions: rows.length - negatives.length,
+      noAnswer: {
+        questions: negatives.length,
+        queriesWithCandidates: {
+          keyword: withCandidates("keyword"),
+          vector: withCandidates("vector"),
+          rrf: withCandidates("rrf"),
+          reranked: withCandidates("reranked"),
+        },
+      },
       corpusDocuments: corpus.length,
       corpusChunks: texts.length,
       requestBudget: config.requestBudget,
@@ -460,10 +488,10 @@ export async function runEvaluation(
         chat: config.chatModel,
       },
       metrics: {
-        keyword: meanQuality(rows.map((row) => row.metrics.keyword)),
-        vector: meanQuality(rows.map((row) => row.metrics.vector)),
-        rrf: meanQuality(rows.map((row) => row.metrics.rrf)),
-        reranked: meanQuality(rows.map((row) => row.metrics.reranked)),
+        keyword: mean("keyword"),
+        vector: mean("vector"),
+        rrf: mean("rrf"),
+        reranked: mean("reranked"),
       },
       timingsMs: {
         prepare: prepared.ms,

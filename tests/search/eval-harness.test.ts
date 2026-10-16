@@ -22,6 +22,9 @@ test("合成质量集有 30 个双语问题、24 份独立资料和显式正相�
       assert.ok(corpus.some((doc) => doc.key === key));
       assert.ok(grade > 0);
     }
+  assert.ok(questions.some((question) => question.kind === "short"));
+  assert.ok(questions.some((question) => question.kind === "filtered" && question.filters));
+  assert.equal(questions.filter((question) => question.kind === "no-answer").length, 2);
 });
 
 test("质量指标按文档去重，Recall@20/nDCG@8/MRR 与手算结果一致", () => {
@@ -123,6 +126,8 @@ test("runner 默认只评两题，五次真实适配器请求，报告三个基�
   assert.equal(report.requestCount, 5);
   assert.equal(report.availableQuestions, 30);
   assert.equal(report.evaluatedQuestions, 2);
+  assert.equal(report.positiveQuestions, 2);
+  assert.equal(report.noAnswer.questions, 0);
   assert.equal(report.dimensions, 3072);
   assert.equal(report.metrics.keyword.mrr, 0.5);
   assert.equal(report.metrics.vector.mrr, 1);

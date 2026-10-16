@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { withTestDatabase } from "./database-fixture";
 import { createEvaluationStore } from "../evals/postgres";
-import { corpus } from "../evals/fixtures";
+import { corpus, questions } from "../evals/fixtures";
 import { readEvaluationConfig, runEvaluation } from "../evals/runner";
 
-test("真实 PostgreSQL eval 以合成 HTTP 运行全部 30 题，34 次请求并保留统计", async () =>
+test("真实 PostgreSQL eval 以合成 HTTP 运行全部 30 题，含过滤/无答案与独立统计", async () =>
   withTestDatabase(async (pool) => {
     let calls = 0;
     const config = readEvaluationConfig({
@@ -35,22 +35,35 @@ test("真实 PostgreSQL eval 以合成 HTTP 运行全部 30 题，34 次请求�
             usage: { prompt_tokens: 1, total_tokens: 1 },
           });
         return Response.json({
-          results: body.documents
-            .slice(0, body.top_n)
-            .map((content: string, index: number) => ({
-              index,
-              relevance_score: Math.max(0.01, 1 - index / 100),
-              length: content.length,
-            })),
+          results: body.documents.slice(0, body.top_n).map((content: string, index: number) => ({
+            index,
+            relevance_score: Math.max(0.01, 1 - index / 100),
+            length: content.length,
+          })),
           meta: { billed_units: { search_units: 1 } },
         });
       },
     });
-    assert.equal(calls, 34);
+    assert.equal(calls, 33);
     assert.equal(report.evaluatedQuestions, 30);
     assert.equal(report.corpusChunks, 24);
     assert.equal(report.questions.length, 30);
-    assert.ok(report.questions.every((row) => row.rankings.vector.length >= 20));
+    assert.equal(report.positiveQuestions, 28);
+    assert.equal(report.noAnswer.questions, 2);
+    assert.equal(report.noAnswer.queriesWithCandidates.vector, 1);
+    for (const row of report.questions) {
+      const question = questions.find((item) => item.id === row.id)!;
+      if (question.filters) {
+        for (const key of row.rankings.vector)
+          assert.ok(
+            question.filters.tags?.every((tag) =>
+              corpus.find((doc) => doc.key === key)!.tags.includes(tag),
+            ),
+          );
+      } else assert.ok(row.rankings.vector.length >= 20);
+    }
+    assert.deepEqual(report.questions.at(-1)!.rankings.vector, []);
+    assert.equal(report.questions.at(-1)!.metrics.reranked, null);
     for (const metrics of Object.values(report.metrics))
       for (const value of Object.values(metrics))
         assert.ok(Number.isFinite(value) && value >= 0 && value <= 1);
