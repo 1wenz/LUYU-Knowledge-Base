@@ -16,6 +16,14 @@
 
 错误通过 `BackupError.code` 区分 `INVALID_JSON`、`INVALID_FORMAT`、`UNSUPPORTED_VERSION`、`LIMIT_EXCEEDED`、`DUPLICATE_ID`、`INVALID_REFERENCE` 和 `INTEGRITY_MISMATCH`；中文错误不回显原始文件、SQL 或凭据。公共 IPC 若接入此能力，应由平台映射到现有错误信封，不直接传送 Error 对象。
 
+## Markdown 导出
+
+`createMarkdownExport(snapshot, { includeTrash?: boolean })` 返回 `{ files, documentCount, excludedTrashCount }`。每个文件描述符只有安全的 `name` 与文本 `content`；函数不写入磁盘。默认跳过回收站，显式 `includeTrash: true` 时包含回收站并保留删除时间。
+
+每篇笔记导出为 `<安全标题>--<完整小写 UUID>.md`，正文、已有 frontmatter、代码和换行逐字保留。另一个 `manifest.json` 记录分类和逐篇元数据/对应文件名，避免把第二份 frontmatter 加进用户正文。清单不包含正文、凭据或向量；它不是 JSON 备份格式，当前不提供从 Markdown 清单自动恢复的 API。
+
+文件名采用平面目录；替换 Windows 非法字符、控制/方向字符与路径分隔符，清理首尾点号/空格，为 CON、PRN、AUX、NUL、COM/LPT 等设备名称加前缀。仅文件名进行 NFC 规范化，完整 UUID 避免大小写和 Unicode 等价标题重名。文件名最多 160 个 UTF-16 单元，截断不会拆开 emoji 的代理对。保存 adapter 仍须在用户选择的导出目录内解析路径，并处理已存在文件和多文件写入失败；这些目录写入行为不由纯格式模块冒充完成。
+
 ## 接入与验证
 
 运行时需要 Node 22 或带 Web Crypto 的安全浏览器上下文。模块不访问 `window`、Electron、文件系统或网络，不添加依赖；SHA-256 使用 Web Crypto。
@@ -26,6 +34,9 @@ M0 的测试编译包含全部 `.test.ts`，其默认 unit 发现目前只扫描
 . 'D:\Warp\demo\scripts\Use-LocalRuntime.ps1'
 npx tsc --project tsconfig.tests.json
 node --test .cache/test-dist/tests/portability/backup.test.js
+node --test .cache/test-dist/tests/portability/markdown.test.js
 ```
 
 行为测试覆盖中文与 emoji、Markdown 原文、空库/空正文/回收站、稳定序列化与输入不变、敏感字段排除、损坏与嵌套字段、UUID/引用/版本、UTF-8 和条目/文件上限。真实数据库的一致性快照和恢复事务须在 adapter 接入阶段验证。
+
+2026-10-16：TypeScript 严格编译与 36 项行为测试实际通过（备份 24、Markdown 12）。Markdown 测试先确认 12 项均因功能缺失失败，再实现 Windows 文件名、清单和原文保留行为。

@@ -27,3 +27,15 @@ A 的 PostgreSQL/检索服务和 C 的新 UI 不在本分支的实现范围。�
 2026-10-16：18 项测试和 `npm run check` 通过。测试先确认平台模块缺失导致失败，再验证 revision 竞争、UTF-8 限制、损坏/迁移备份、写入失败、删除后重启、加密不可用、会话模式和合成秘密脱敏。
 
 Electron 官方下载器本次 `fetch failed`，直接 GitHub 连接超时。正在复用本机已启用的系统代理进行进程级重试，没有修改全局代理或运行时；下载结果与真实桌面检查在 B2/B3 更新。
+
+## B2 安全 IPC 与生命周期
+
+实现 `createPlatform(deps)`，服务工厂类型是 `KnowledgeServiceFactory`。CTO 合并 A 后在 `electron/main.ts` 的 createPlatform 调用中注入 `createKnowledgeService`；未注入时知识端点返回 CONFIG_REQUIRED，不创建 demo 资料。C 直接使用 window.desktop 的 KnowledgeClient。原型 UI 尚待 C 替换，不能用它证明 v1 的数据库/检索已联通。
+
+所有固定 handler 经过注册 WebContents、顶层 mainFrame、精确 origin、请求字节上限和严格 schema；输出同样验证，非法服务响应变成 INTERNAL。preload 只包含本地 JS 和 Electron require，不开放 invoke。开发/生产导航、弹窗、权限、webview、CSP、静态路径穿越/Windows ADS 均受限；原生文本选择器限定扩展名、UTF-8、数量、单文件与总字节。
+
+长任务以 Command.requestId 登记，先发送 started，seq 从 1 递增，终态唯一；delta 最多每 50ms 一次、16 KiB 每块。owner 从注册窗口推导，跨窗口取消拒绝；关窗/导航取消。搜索替换与数据库/凭据切换会取消旧 signal，旧成功响应再次按连接 epoch 拒绝。设置只调用 A 的 applySettings，不启动重建。A 的 applySettings 即使前后设置相同也必须重新读取秘密，关闭旧连接池；失败后平台阻止新数据操作，设置仍可编辑。LangChain/LangSmith tracing 在主进程关闭。
+
+2026-10-16：check 与 build 通过；31 项单元/平台测试通过。真实 Electron 4 个用例均已验证：静态沙盒/旧兼容入口；固定 API 与输入攻击；Windows safeStorage 设置/删除跨三次重启；同源未注册窗口拒绝和导航/弹窗阻止。最后一项最初因测试从 getLastWebPreferences 读取不到 preload 路径而超时，夹具改用应用根目录明确路径后单项复验通过，未放宽应用安全参数。流式时间断言使用 mock clock，避免负载导致定时等待不稳定。
+
+Electron 44.7.2 官方二进制经本机已有系统代理的进程级设置安装成功。测试使用独立 `.cache/desktop-tests/user-*` userData，不接触用户正式配置或笔记。截图 `.cache/desktop-preview.png`，失败 trace 留在忽略的 test-results（后续测试会更新）。
